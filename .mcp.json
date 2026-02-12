@@ -1,0 +1,38 @@
+{
+  "mcpServers": {
+    "typescript-sdk": {
+      "name": "TypeScript SDK",
+      "command": "node",
+      "args": [
+        "path/to/ts-sdk-server.js"
+      ],
+      "env": {}
+    },
+    "puppeteer": {
+      "name": "Puppeteer MCP",
+      "command": "node",
+      "args": [
+        "path/to/server-puppeteer"
+      ],
+      "env": {}
+    },
+    "memory-bank": {
+      "name": "Memory Bank MCP",
+      "command": "server-memory",
+      "args": [],
+      "env": {}
+    },
+    "sequential-thinking": {
+      "name": "Sequential Thinking MCP",
+      "command": "code-reasoning",
+      "args": [],
+      "env": {}
+    },
+    "deep-graph": {
+      "name": "Deep Graph MCP (Code Graph)",
+      "command": "mcp-code-graph",
+      "args": [],
+      "env": {}
+    }
+  }
+}

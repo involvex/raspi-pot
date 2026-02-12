@@ -1,0 +1,11 @@
+{
+  "enabledMcpjsonServers": [
+    "puppeteer",
+    "memory-bank",
+    "sequential-thinking"
+  ],
+  "disabledMcpjsonServers": [
+    "typescript-sdk",
+    "deep-graph"
+  ]
+}
