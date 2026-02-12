@@ -9,9 +9,17 @@ class PluginManager extends EventEmitter {
     this.pluginDir = path.join(__dirname, '../plugins');
     this.configPath = path.join(__dirname, '../plugins.json');
     this.enabledPlugins = new Set();
+    this.pluginSettings = {};
+    this.initialized = false;
 
-    this.ensurePluginDirectory();
-    this.loadPluginConfig();
+    this.initialize();
+  }
+
+  async initialize() {
+    await this.ensurePluginDirectory();
+    await this.loadPluginConfig();
+    await this.loadAllPluginSettings();
+    this.initialized = true;
   }
 
   async ensurePluginDirectory() {
@@ -21,11 +29,17 @@ class PluginManager extends EventEmitter {
   async loadPluginConfig() {
     try {
       if (await fs.pathExists(this.configPath)) {
-        const config = await fs.readJson(this.configPath);
+        const rawContent = await fs.readFile(this.configPath, 'utf8');
+        const config = JSON.parse(rawContent);
         this.enabledPlugins = new Set(config.enabled || []);
       }
     } catch (error) {
       console.error('Failed to load plugin config:', error);
+      if (error instanceof SyntaxError) {
+        console.error(`Malformed JSON in ${this.configPath}. Resetting to default.`);
+        await this.savePluginConfig();
+      }
+      this.enabledPlugins = new Set();
     }
   }
 
@@ -39,6 +53,58 @@ class PluginManager extends EventEmitter {
     } catch (error) {
       console.error('Failed to save plugin config:', error);
     }
+  }
+
+  getSettingsPath() {
+    return path.join(__dirname, '../plugin-settings.json');
+  }
+
+  async loadAllPluginSettings() {
+    try {
+      const settingsPath = this.getSettingsPath();
+      if (await fs.pathExists(settingsPath)) {
+        const rawContent = await fs.readFile(settingsPath, 'utf8');
+        this.pluginSettings = JSON.parse(rawContent);
+      } else {
+        this.pluginSettings = {};
+      }
+    } catch (error) {
+      console.error('Failed to load plugin settings:', error);
+      if (error instanceof SyntaxError) {
+        console.error('Malformed JSON in settings file. Resetting to default.');
+      }
+      this.pluginSettings = {};
+    }
+  }
+
+  async savePluginSettings(pluginName, settings) {
+    try {
+      if (!this.pluginSettings) {
+        this.pluginSettings = {};
+      }
+      this.pluginSettings[pluginName] = settings;
+
+      const settingsPath = this.getSettingsPath();
+      const content = JSON.stringify(this.pluginSettings, null, 2);
+      await fs.writeFile(settingsPath, content, 'utf8');
+
+      return true;
+    } catch (error) {
+      console.error(`Failed to save settings for ${pluginName}:`, error);
+      return false;
+    }
+  }
+
+  getPluginSettings(pluginName) {
+    const plugin = this.plugins.get(pluginName);
+    if (!plugin) {
+      throw new Error(`Plugin not found: ${pluginName}`);
+    }
+
+    const defaultSettings = plugin.manifest.settings || {};
+    const persistedSettings = this.pluginSettings?.[pluginName] || {};
+
+    return { ...defaultSettings, ...persistedSettings };
   }
 
   async loadPlugin(pluginName) {
@@ -74,8 +140,14 @@ class PluginManager extends EventEmitter {
       const PluginClass = require(mainPath);
       console.log(`Plugin class loaded: ${PluginClass.name}`);
 
-      // Create plugin instance
-      const plugin = new PluginClass(manifest);
+      // Get persisted settings for this plugin
+      const defaultSettings = manifest.settings || {};
+      const persistedSettings = this.pluginSettings?.[pluginName] || {};
+      const mergedSettings = { ...defaultSettings, ...persistedSettings };
+
+      // Create plugin instance with persisted settings
+      const plugin = new PluginClass(manifest, mergedSettings);
+      plugin.pluginManager = this;
       console.log(`Plugin instance created: ${plugin.name}`);
 
       // Store plugin
@@ -205,6 +277,11 @@ class PluginManager extends EventEmitter {
 
   async loadAllPlugins() {
     try {
+      // Ensure we are initialized before loading plugins
+      if (!this.initialized) {
+        await this.initialize();
+      }
+
       console.log(`Loading plugins from directory: ${this.pluginDir}`);
       const pluginDirs = await fs.readdir(this.pluginDir);
       console.log(`Found plugin directories: ${pluginDirs}`);

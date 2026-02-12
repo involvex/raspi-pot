@@ -2,9 +2,10 @@ import { writable } from 'svelte/store';
 
 function createSettingsStore() {
   // Load settings from localStorage if available
-  const storedSettings = typeof localStorage !== 'undefined'
-    ? JSON.parse(localStorage.getItem('cloud-storage-settings') || '{}')
-    : {};
+  const storedSettings =
+    typeof localStorage !== 'undefined'
+      ? JSON.parse(localStorage.getItem('cloud-storage-settings') || '{}')
+      : {};
 
   const { subscribe, set, update } = writable({
     gdrive: {
@@ -27,14 +28,14 @@ function createSettingsStore() {
 
   return {
     subscribe,
-    set: (value) => {
+    set: value => {
       // Save to localStorage
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem('cloud-storage-settings', JSON.stringify(value));
       }
       set(value);
     },
-    update: (updater) => {
+    update: updater => {
       update(currentValue => {
         const newValue = updater(currentValue);
         // Save to localStorage

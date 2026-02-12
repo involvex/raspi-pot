@@ -67,25 +67,18 @@ app.use(cors());
 app.use(express.json());
 
 // Plugin HTTP Request Middleware
-app.use('/api/cloud-storage', (req, res, next) => {
+app.use('/api/cloud-storage', async(req, res, next) => {
   try {
     const enabledPlugins = pluginManager.getEnabledPlugins();
     const cloudStoragePlugin = enabledPlugins.find(p => p.name === 'cloud-storage');
-
-    console.log('Cloud storage plugin check:', {
-      enabledPlugins: enabledPlugins.map(p => p.name),
-      cloudStoragePlugin: !!cloudStoragePlugin,
-      path: req.path
-    });
 
     if (
       cloudStoragePlugin &&
       cloudStoragePlugin.instance &&
       cloudStoragePlugin.instance.onHttpRequest
     ) {
-      cloudStoragePlugin.instance.onHttpRequest(req, res, next);
+      await cloudStoragePlugin.instance.onHttpRequest(req, res, next);
     } else {
-      console.log('Cloud storage plugin not ready, passing to next');
       next();
     }
   } catch (error) {
@@ -142,6 +135,37 @@ app.post('/api/plugins/:name/disable', async(req, res) => {
     const { name } = req.params;
     const success = await pluginManager.disablePlugin(name);
     res.json({ success });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.get('/api/plugins/:name/settings', async(req, res) => {
+  try {
+    const { name } = req.params;
+    const settings = pluginManager.getPluginSettings(name);
+    res.json({ success: true, settings });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.post('/api/plugins/:name/settings', async(req, res) => {
+  try {
+    const { name } = req.params;
+    const settings = req.body;
+
+    // Find plugin and update its settings
+    const plugins = pluginManager.getEnabledPlugins();
+    const plugin = plugins.find(p => p.name === name);
+
+    if (plugin && plugin.instance && plugin.instance.updateSettings) {
+      await plugin.instance.updateSettings(settings);
+    } else {
+      await pluginManager.savePluginSettings(name, settings);
+    }
+
+    res.json({ success: true });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }

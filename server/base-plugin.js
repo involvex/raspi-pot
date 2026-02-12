@@ -22,7 +22,7 @@ class BasePlugin {
   async onTelemetryData(data) {
     // Called when telemetry data is updated
     // Override in plugin implementation
-    console.log('BasePlugin.onTelemetryData', data);
+    // Default implementation does nothing
   }
 
   onSocketConnection() {

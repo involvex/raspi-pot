@@ -1,15 +1,21 @@
 const BasePlugin = require('../../server/base-plugin.js');
 const { google } = require('googleapis');
-const { Mega } = require('megajs');
+const { Storage } = require('megajs');
 const fs = require('fs-extra');
 const path = require('path');
 const multer = require('multer');
 const crypto = require('crypto');
 
 class CloudStoragePlugin extends BasePlugin {
-  constructor(manifest) {
+  constructor(manifest, persistedSettings = {}) {
     super(manifest);
-    this.settings = manifest.settings || {};
+
+    // Start with manifest defaults, merge with persisted settings
+    this.settings = {
+      ...(manifest.settings || {}),
+      ...persistedSettings,
+    };
+
     this.gdriveTokens = null;
     this.megaClient = null;
     this.uploadDir = path.join(__dirname, '../../../', this.settings.uploadPath || './uploads');
@@ -66,7 +72,13 @@ class CloudStoragePlugin extends BasePlugin {
 
   async onHttpRequest(req, res, next) {
     // Handle all cloud storage API routes
-    if (req.path.startsWith('/api/cloud-storage/')) {
+    // When mounted on /api/cloud-storage, req.path is relative to that mount point
+    // We check both for robustness
+    if (
+      req.path.startsWith('/api/cloud-storage/') ||
+      req.baseUrl === '/api/cloud-storage' ||
+      req.originalUrl.startsWith('/api/cloud-storage/')
+    ) {
       await this.handleCloudStorageRequest(req, res);
       return;
     }
@@ -75,9 +87,29 @@ class CloudStoragePlugin extends BasePlugin {
 
   async handleCloudStorageRequest(req, res) {
     try {
+      // Use req.path which is relative to the mount point (/api/cloud-storage)
       const pathParts = req.path.split('/').filter(p => p);
-      const service = pathParts[2]; // gdrive, mega
-      const action = pathParts[3]; // auth, list, upload, download, etc.
+
+      // If req.path was "/api/cloud-storage/gdrive/list", pathParts might be ["api", "cloud-storage", "gdrive", "list"]
+      // or if mounted, it might be ["gdrive", "list"]
+      let service, action;
+
+      if (pathParts[0] === 'api' && pathParts[1] === 'cloud-storage') {
+        service = pathParts[2];
+        action = pathParts[3];
+      } else {
+        service = pathParts[0];
+        action = pathParts[1];
+      }
+
+      if (service === 'settings' && req.method === 'POST') {
+        await this.updateSettings(req.body);
+        return res.json({ success: true, settings: this.getSettings() });
+      }
+
+      if (service === 'settings' && req.method === 'GET') {
+        return res.json({ success: true, settings: this.getSettings() });
+      }
 
       if (!service || !action) {
         return res.status(400).json({ success: false, error: 'Invalid request' });
@@ -360,10 +392,10 @@ class CloudStoragePlugin extends BasePlugin {
     }
 
     try {
-      this.megaClient = new Mega({ email, password });
-      await this.megaClient.ready;
+      this.megaClient = await new Storage({ email, password }).ready;
 
-      // Save credentials (encrypted)
+      // Save credentials (Note: for real apps, use tokens/sessions if possible)
+      // For now, we'll keep the email and password hash in settings for UI status
       const encrypted = crypto.createHash('sha256').update(password).digest('hex');
       this.settings.mega.email = email;
       this.settings.mega.encryptedPassword = encrypted;
@@ -485,15 +517,24 @@ class CloudStoragePlugin extends BasePlugin {
   async saveTokens() {
     try {
       const tokensPath = path.join(__dirname, '../../../tokens.json');
-      await fs.writeJson(tokensPath, {
+      const tokensDir = path.dirname(tokensPath);
+
+      // Ensure directory exists
+      await fs.ensureDir(tokensDir);
+
+      const tokenData = {
         gdrive: this.gdriveTokens,
         mega: {
-          email: this.settings.mega.email,
-          encryptedPassword: this.settings.mega.encryptedPassword,
+          email: this.settings.mega?.email || '',
+          encryptedPassword: this.settings.mega?.encryptedPassword || '',
         },
-      });
+      };
+
+      const content = JSON.stringify(tokenData, null, 2);
+      await fs.writeFile(tokensPath, content, 'utf8');
     } catch (error) {
       this.error(`Failed to save tokens: ${error.message}`);
+      throw error;
     }
   }
 
@@ -501,8 +542,12 @@ class CloudStoragePlugin extends BasePlugin {
     try {
       const tokensPath = path.join(__dirname, '../../../tokens.json');
       if (await fs.pathExists(tokensPath)) {
-        const tokens = await fs.readJson(tokensPath);
-        this.gdriveTokens = tokens.gdrive;
+        const rawContent = await fs.readFile(tokensPath, 'utf8');
+        const tokens = JSON.parse(rawContent);
+
+        if (tokens.gdrive) {
+          this.gdriveTokens = tokens.gdrive;
+        }
 
         if (tokens.mega && tokens.mega.email && tokens.mega.encryptedPassword) {
           this.settings.mega.email = tokens.mega.email;
@@ -511,13 +556,44 @@ class CloudStoragePlugin extends BasePlugin {
       }
     } catch (error) {
       this.error(`Failed to load tokens: ${error.message}`);
+      if (error instanceof SyntaxError) {
+        this.error('Malformed tokens.json - will create new file on save');
+      }
+      // Don't throw - allow plugin to continue without tokens
     }
   }
 
   // Settings Management
   async updateSettings(newSettings) {
+    // Merge new settings with existing
     this.settings = { ...this.settings, ...newSettings };
-    this.log('Cloud storage settings updated');
+
+    // Update derived values
+    this.uploadDir = path.join(__dirname, '../../../', this.settings.uploadPath || './uploads');
+    await this.ensureUploadDirectory();
+
+    // Reconfigure multer for new size limits
+    this.upload = multer({
+      storage: multer.diskStorage({
+        destination: (req, file, cb) => {
+          cb(null, this.uploadDir);
+        },
+        filename: (req, file, cb) => {
+          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+          cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+        },
+      }),
+      limits: {
+        fileSize: this.parseSize(this.settings.maxFileSize || '100MB'),
+      },
+    });
+
+    // Persist settings via plugin manager
+    if (this.pluginManager) {
+      await this.pluginManager.savePluginSettings(this.name, this.settings);
+    }
+
+    this.log('Cloud storage settings updated and persisted');
   }
 
   getSettings() {

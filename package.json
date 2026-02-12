@@ -20,7 +20,7 @@
     "format:check": "npx prettier . --check"
   },
   "keywords": [],
-  "author": "",
+  "author": "involvex",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {

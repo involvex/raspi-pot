@@ -32,7 +32,7 @@
     async function loadFiles(service) {
         loading = true;
         error = null;
-        
+
         try {
             const response = await fetch(`/api/cloud-storage/${service}/list`);
             const data = await response.json();
@@ -89,34 +89,35 @@
     }
 
     async function loginMega() {
+        loading = true;
+        error = null;
         try {
             const response = await fetch('/api/cloud-storage/mega/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify($settings.mega)
+                body: JSON.stringify(megaCredentials)
             });
             
             const data = await response.json();
             
             if (data.success) {
                 megaAuthenticated = true;
-                megaCredentials = {
-                    email: $settings.mega.email,
-                    password: $settings.mega.password
-                };
                 
-                // Update settings store
-                settings.update({
-                    mega: {
-                        ...$settings.mega,
-                        enabled: true
-                    }
+                // Update settings store with at least the email
+                settings.update(s => {
+                    s.mega.email = megaCredentials.email;
+                    s.mega.enabled = true;
+                    return s;
                 });
+
+                await loadFiles('mega');
             } else {
                 error = data.error;
             }
         } catch (err) {
             error = err.message;
+        } finally {
+            loading = false;
         }
     }
 
@@ -213,20 +214,39 @@
         return new Date(dateString).toLocaleString();
     }
 
-    onMount(() => {
+async function saveSettings() {
+        loading = true;
+        try {
+            const response = await fetch('/api/plugins/cloud-storage/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify($settings)
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                settingsModal = false;
+                error = null;
+                // Refresh status
+                await checkStatus('gdrive');
+                await checkStatus('mega');
+            } else {
+                error = data.error || 'Failed to save settings';
+            }
+        } catch (err) {
+            error = err.message;
+        } finally {
+            loading = false;
+        }
+    }
+
+    onMount(async () => {
         // Check authentication status on mount
-        Promise.all([
-            fetch('/api/cloud-storage/gdrive/status'),
-            fetch('/api/cloud-storage/mega/status')
-        ]).then(([gdriveStatus, megaStatus]) => {
-            const gdriveData = gdriveStatus.json();
-            const megaData = megaStatus.json();
-            
-            gdriveAuthenticated = gdriveData.authenticated;
-            gdriveConfigured = gdriveData.configured;
-            megaAuthenticated = megaData.authenticated;
-            megaConfigured = megaData.configured;
-        });
+        await Promise.all([
+            checkStatus('gdrive'),
+            checkStatus('mega')
+        ]);
     });
 </script>
 
@@ -588,7 +608,7 @@
         <button class="btn-secondary" on:click={() => settingsModal = false}>
           Cancel
         </button>
-        <button class="btn-primary" on:click={() => settingsModal = false}>
+        <button class="btn-primary" on:click={saveSettings}>
           Save Settings
         </button>
       </div>

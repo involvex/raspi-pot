@@ -7,10 +7,16 @@ async function testPluginLoading() {
 
   try {
     await pluginManager.loadAllPlugins();
-    console.log('Available plugins:', pluginManager.getPluginList().map(p => p.name));
+    console.log(
+      'Available plugins:',
+      pluginManager.getPluginList().map(p => p.name)
+    );
 
     await pluginManager.enablePlugin('cloud-storage');
-    console.log('Enabled plugins:', pluginManager.getEnabledPlugins().map(p => p.name));
+    console.log(
+      'Enabled plugins:',
+      pluginManager.getEnabledPlugins().map(p => p.name)
+    );
 
     const enabledPlugins = pluginManager.getEnabledPlugins();
     const cloudStoragePlugin = enabledPlugins.find(p => p.name === 'cloud-storage');
@@ -21,16 +27,17 @@ async function testPluginLoading() {
     } else {
       console.log('Cloud storage plugin not found or not properly initialized');
     }
-
   } catch (error) {
     console.error('Test failed:', error);
   }
 }
 
-testPluginLoading().then(() => {
-  console.log('Test completed');
-  process.exit(0);
-}).catch(error => {
-  console.error('Test error:', error);
-  process.exit(1);
-});
+testPluginLoading()
+  .then(() => {
+    console.log('Test completed');
+    process.exit(0);
+  })
+  .catch(error => {
+    console.error('Test error:', error);
+    process.exit(1);
+  });

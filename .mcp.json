@@ -3,36 +3,42 @@
     "typescript-sdk": {
       "name": "TypeScript SDK",
       "command": "node",
-      "args": [
-        "path/to/ts-sdk-server.js"
-      ],
-      "env": {}
+      "args": ["path/to/ts-sdk-server.js"],
+      "env": {},
+      "disabled": true,
+      "alwaysAllow": []
     },
     "puppeteer": {
       "name": "Puppeteer MCP",
       "command": "node",
-      "args": [
-        "path/to/server-puppeteer"
-      ],
-      "env": {}
+      "args": ["path/to/server-puppeteer"],
+      "env": {},
+      "disabled": true,
+      "alwaysAllow": []
     },
     "memory-bank": {
       "name": "Memory Bank MCP",
       "command": "server-memory",
       "args": [],
-      "env": {}
+      "env": {},
+      "disabled": true,
+      "alwaysAllow": []
     },
     "sequential-thinking": {
       "name": "Sequential Thinking MCP",
       "command": "code-reasoning",
       "args": [],
-      "env": {}
+      "env": {},
+      "disabled": true,
+      "alwaysAllow": []
     },
     "deep-graph": {
       "name": "Deep Graph MCP (Code Graph)",
       "command": "mcp-code-graph",
       "args": [],
-      "env": {}
+      "env": {},
+      "disabled": true,
+      "alwaysAllow": []
     }
   }
 }
