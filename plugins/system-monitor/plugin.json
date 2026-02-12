@@ -1,0 +1,18 @@
+{
+  "name": "system-monitor",
+  "version": "1.0.0",
+  "description": "Advanced system monitoring with historical data and alerts",
+  "author": "RaspiPot Team",
+  "main": "index.js",
+  "category": "System",
+  "permissions": ["telemetry", "notifications"],
+  "hooks": ["onTelemetryData"],
+  "settings": {
+    "alertThresholds": {
+      "cpu": 80,
+      "memory": 85,
+      "temperature": 70
+    },
+    "historySize": 100
+  }
+}

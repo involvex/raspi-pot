@@ -17,13 +17,20 @@
         ips: []
     };
     let unsubscribe;
+    let updateTimeout = null;
+
+    // Debounce updates for Pi 2B performance
+    function debouncedUpdate(newStats) {
+        if (updateTimeout) clearTimeout(updateTimeout);
+        updateTimeout = setTimeout(() => {
+            stats = { ...stats, ...newStats };
+        }, 100); // 100ms debounce
+    }
 
     onMount(() => {
         unsubscribe = socket.subscribe($socket => {
             if ($socket) {
-                $socket.on('telemetry:stats', (data) => {
-                    stats = { ...stats, ...data };
-                });
+                $socket.on('telemetry:stats', debouncedUpdate);
             }
         });
     });
@@ -31,6 +38,7 @@
     onDestroy(() => {
         if (unsubscribe) unsubscribe();
         if ($socket) $socket.off('telemetry:stats');
+        if (updateTimeout) clearTimeout(updateTimeout);
     });
 
     function formatUptime(seconds) {
@@ -191,9 +199,9 @@
     }
 
     @keyframes pulse-animation {
-        0% { box-shadow: 0 0 0 0px rgba(6, 214, 160, 0.4); }
-        70% { box-shadow: 0 0 0 10px rgba(6, 214, 160, 0); }
-        100% { box-shadow: 0 0 0 0px rgba(6, 214, 160, 0); }
+        0% { opacity: 1; }
+        50% { opacity: 0.7; }
+        100% { opacity: 1; }
     }
 
     .status-text {

@@ -20,6 +20,14 @@ RaspiPot is a modern, web-based management interface designed for Raspberry Pi e
   - Connect to new networks via the UI.
   - Manage saved WiFi profiles.
   - Multi-interface IP display (Ethernet + WiFi) in a prominent status capsule.
+- **☁️ Cloud Storage Integration:**
+  - Connect to Google Drive and Mega.nz for seamless file management.
+  - Upload, download, and delete files directly from the dashboard.
+  - Secure OAuth2 authentication and encrypted credential storage.
+- **🔌 Plugin System:**
+  - Extensible architecture with dynamic plugin loading.
+  - Install and manage plugins through the web interface.
+  - Performance-optimized for Raspberry Pi 2B.
 - **🛠 Service Control:** Start, stop, and restart `systemd` services directly from the browser.
 - **💻 Integrated Terminal:** Full SSH-like terminal access powered by `xterm.js` and `node-pty`.
 - **⚙️ Settings & Security:**
@@ -41,6 +49,7 @@ RaspiPot is a modern, web-based management interface designed for Raspberry Pi e
 ## 🚀 Quick Start
 
 ### Prerequisites
+
 - A Raspberry Pi running Raspberry Pi OS (Debian-based).
 - Node.js (v18 or higher recommended).
 - `NetworkManager` installed (`sudo apt install network-manager`).
@@ -48,16 +57,18 @@ RaspiPot is a modern, web-based management interface designed for Raspberry Pi e
 ### Installation
 
 1. **Clone the repository:**
+
    ```bash
    git clone https://github.com/yourusername/raspipot.git
    cd raspipot
    ```
 
 2. **Install Dependencies:**
+
    ```bash
    # Install server dependencies
    npm install
-   
+
    # Install client dependencies
    cd client && npm install
    cd ..
@@ -65,6 +76,7 @@ RaspiPot is a modern, web-based management interface designed for Raspberry Pi e
 
 3. **Configure Environment:**
    Create a `.env` file in the root directory:
+
    ```env
    JWT_SECRET=your_secret_here
    ADMIN_PASSWORD=raspberry
@@ -72,6 +84,7 @@ RaspiPot is a modern, web-based management interface designed for Raspberry Pi e
    ```
 
 4. **Build the Frontend:**
+
    ```bash
    cd client
    npm run build
@@ -104,4 +117,5 @@ Contributions are welcome! Please feel free to submit a Pull Request. For major 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
-*Built with ❤️ for the Raspberry Pi Community.*
+
+_Built with ❤️ for the Raspberry Pi Community._

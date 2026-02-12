@@ -61,6 +61,14 @@
 
     <div class="nav-section">
         <div class="section-title">Tools</div>
+        <a href="/plugins" class:active={$page.url.pathname === '/plugins'}>
+            <span class="material-icons">extension</span>
+            Plugins
+        </a>
+        <a href="/cloud-storage" class:active={$page.url.pathname === '/cloud-storage'}>
+            <span class="material-icons">cloud</span>
+            Cloud Storage
+        </a>
         <a href="/terminal" class:active={$page.url.pathname === '/terminal'}>
             <span class="material-icons">terminal</span>
             Terminal

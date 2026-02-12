@@ -1,0 +1,16 @@
+{
+  "name": "weather-widget",
+  "version": "1.0.0",
+  "description": "Weather widget with current conditions and forecast",
+  "author": "RaspiPot Team",
+  "main": "index.js",
+  "category": "Information",
+  "permissions": ["network"],
+  "hooks": ["onHttpRequest"],
+  "settings": {
+    "location": "London,UK",
+    "units": "metric",
+    "apiKey": "",
+    "updateInterval": 1800000
+  }
+}

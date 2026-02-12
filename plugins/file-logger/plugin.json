@@ -1,0 +1,15 @@
+{
+  "name": "file-logger",
+  "version": "1.0.0",
+  "description": "System event logger with file output",
+  "author": "RaspiPot Team",
+  "main": "index.js",
+  "category": "System",
+  "permissions": ["filesystem"],
+  "hooks": ["onTelemetryData", "onSocketConnection", "onSocketDisconnection"],
+  "settings": {
+    "logFile": "raspipot.log",
+    "maxFileSize": "10MB",
+    "logLevel": "info"
+  }
+}

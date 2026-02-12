@@ -46,10 +46,10 @@
         display: flex;
         flex-direction: column;
         gap: 1rem;
-        transition: transform 0.2s, border-color 0.2s;
+        /* Optimized: Remove heavy transitions for Pi 2B */
+        transform: translateZ(0); /* Hardware acceleration hint */
     }
     .card:hover {
-        transform: translateY(-2px);
         border-color: #2b6cee55;
     }
     .card-header {

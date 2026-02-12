@@ -1,6 +1,7 @@
 # Deploying RaspiPot to Raspberry Pi
 
 ## Prerequisites
+
 - Node.js (v18 or later recommended) installed on Raspberry Pi.
 - Build tools (for `node-pty`): `sudo apt-get install -y python3 make g++`
 
@@ -17,7 +18,7 @@
       npm install
       cd client && npm install && cd ..
       ```
-    - *Note*: `npm install` in the root will compile `node-pty`. This might take a few minutes.
+    - _Note_: `npm install` in the root will compile `node-pty`. This might take a few minutes.
 
 3.  **Configure Environment**
     - Create a `.env` file in the `raspipot` root:
@@ -33,14 +34,14 @@
       ```
     - This compiles the SvelteKit app into static files in `client/build`.
 
-4.  **Run the Server**
+5.  **Run the Server**
     - Start the application:
       ```bash
       npm start
       ```
     - The app will be available at `http://<raspberrypi-ip>:3000`.
 
-5.  **Run as a Service (Optional but Recommended)**
+6.  **Run as a Service (Optional but Recommended)**
     - Use `pm2` to keep the app running:
       ```bash
       sudo npm install -g pm2
