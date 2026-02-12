@@ -43,14 +43,19 @@ class PluginManager extends EventEmitter {
 
   async loadPlugin(pluginName) {
     try {
+      console.log(`Loading plugin: ${pluginName}`);
       const pluginPath = path.join(this.pluginDir, pluginName);
       const manifestPath = path.join(pluginPath, 'plugin.json');
+
+      console.log(`Plugin path: ${pluginPath}`);
+      console.log(`Manifest path: ${manifestPath}`);
 
       if (!(await fs.pathExists(manifestPath))) {
         throw new Error(`Plugin manifest not found: ${manifestPath}`);
       }
 
       const manifest = await fs.readJson(manifestPath);
+      console.log(`Manifest loaded for ${pluginName}:`, manifest.name);
 
       // Validate manifest
       if (!manifest.name || !manifest.version || !manifest.main) {
@@ -59,15 +64,19 @@ class PluginManager extends EventEmitter {
 
       // Load plugin module
       const mainPath = path.join(pluginPath, manifest.main);
+      console.log(`Main file path: ${mainPath}`);
+
       if (!(await fs.pathExists(mainPath))) {
         throw new Error(`Plugin main file not found: ${mainPath}`);
       }
 
       delete require.cache[require.resolve(mainPath)];
       const PluginClass = require(mainPath);
+      console.log(`Plugin class loaded: ${PluginClass.name}`);
 
       // Create plugin instance
       const plugin = new PluginClass(manifest);
+      console.log(`Plugin instance created: ${plugin.name}`);
 
       // Store plugin
       this.plugins.set(pluginName, {
@@ -196,18 +205,22 @@ class PluginManager extends EventEmitter {
 
   async loadAllPlugins() {
     try {
+      console.log(`Loading plugins from directory: ${this.pluginDir}`);
       const pluginDirs = await fs.readdir(this.pluginDir);
+      console.log(`Found plugin directories: ${pluginDirs}`);
 
       for (const dir of pluginDirs) {
         const pluginPath = path.join(this.pluginDir, dir);
         const stat = await fs.stat(pluginPath);
 
         if (stat.isDirectory()) {
+          console.log(`Loading plugin from directory: ${dir}`);
           await this.loadPlugin(dir);
         }
       }
 
       // Enable plugins that were previously enabled
+      console.log(`Previously enabled plugins: ${Array.from(this.enabledPlugins)}`);
       for (const pluginName of this.enabledPlugins) {
         if (this.plugins.has(pluginName)) {
           await this.enablePlugin(pluginName);

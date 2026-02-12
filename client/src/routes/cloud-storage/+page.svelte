@@ -1,5 +1,6 @@
 <script>
     import { onMount } from 'svelte';
+    import { settings } from '$lib/stores/settings';
     
     let activeTab = 'gdrive';
     let gdriveFiles = [];
@@ -8,6 +9,7 @@
     let error = null;
     let uploadModal = false;
     let selectedFile = null;
+    let settingsModal = false;
     
     // Google Drive state
     let gdriveAuthenticated = false;
@@ -18,13 +20,14 @@
     let megaAuthenticated = false;
     let megaConfigured = false;
     let megaCredentials = { email: '', password: '' };
-    
-    // Settings modal
-    let settingsModal = false;
-    let settings = {
-        gdrive: { clientId: '', clientSecret: '', enabled: false },
-        mega: { email: '', password: '', enabled: false }
-    };
+
+    // Initialize settings if not already set
+    if (!$settings.gdrive) {
+        settings.update({
+            gdrive: { clientId: '', clientSecret: '', enabled: false },
+            mega: { email: '', password: '', enabled: false }
+        });
+    }
 
     async function loadFiles(service) {
         loading = true;
@@ -86,25 +89,34 @@
     }
 
     async function loginMega() {
-        loading = true;
         try {
             const response = await fetch('/api/cloud-storage/mega/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(megaCredentials)
+                body: JSON.stringify($settings.mega)
             });
             
             const data = await response.json();
+            
             if (data.success) {
                 megaAuthenticated = true;
-                await loadFiles('mega');
+                megaCredentials = {
+                    email: $settings.mega.email,
+                    password: $settings.mega.password
+                };
+                
+                // Update settings store
+                settings.update({
+                    mega: {
+                        ...$settings.mega,
+                        enabled: true
+                    }
+                });
             } else {
                 error = data.error;
             }
         } catch (err) {
             error = err.message;
-        } finally {
-            loading = false;
         }
     }
 
@@ -115,16 +127,19 @@
         }
 
         loading = true;
-        const formData = new FormData();
-        formData.append('file', selectedFile);
-
+        error = null;
+        
         try {
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            
             const response = await fetch(`/api/cloud-storage/${service}/upload`, {
                 method: 'POST',
                 body: formData
             });
             
             const data = await response.json();
+            
             if (data.success) {
                 uploadModal = false;
                 selectedFile = null;
@@ -142,6 +157,7 @@
     async function downloadFile(service, fileId, fileName) {
         try {
             const response = await fetch(`/api/cloud-storage/${service}/download?fileId=${fileId}`);
+            
             if (response.ok) {
                 const blob = await response.blob();
                 const url = window.URL.createObjectURL(blob);
@@ -173,6 +189,7 @@
             });
             
             const data = await response.json();
+            
             if (data.success) {
                 await loadFiles(service);
             } else {
@@ -196,12 +213,20 @@
         return new Date(dateString).toLocaleString();
     }
 
-    onMount(async () => {
-        await checkStatus('gdrive');
-        await checkStatus('mega');
-        
-        if (gdriveAuthenticated) await loadFiles('gdrive');
-        if (megaAuthenticated) await loadFiles('mega');
+    onMount(() => {
+        // Check authentication status on mount
+        Promise.all([
+            fetch('/api/cloud-storage/gdrive/status'),
+            fetch('/api/cloud-storage/mega/status')
+        ]).then(([gdriveStatus, megaStatus]) => {
+            const gdriveData = gdriveStatus.json();
+            const megaData = megaStatus.json();
+            
+            gdriveAuthenticated = gdriveData.authenticated;
+            gdriveConfigured = gdriveData.configured;
+            megaAuthenticated = megaData.authenticated;
+            megaConfigured = megaData.configured;
+        });
     });
 </script>
 
@@ -438,115 +463,137 @@
 
 <!-- Upload Modal -->
 {#if uploadModal}
-    <div class="modal-overlay" on:click={() => uploadModal = false}>
-        <div class="modal" on:click|stopPropagation>
-            <div class="modal-header">
-                <h2>Upload File to {activeTab === 'gdrive' ? 'Google Drive' : 'Mega'}</h2>
-                <button class="close-btn" on:click={() => uploadModal = false}>
-                    <span class="material-icons">close</span>
-                </button>
-            </div>
-            
-            <div class="modal-content">
-                <div class="file-upload">
-                    <input 
-                        type="file" 
-                        accept="*/*"
-                        on:change={(e) => selectedFile = e.target.files[0]}
-                        id="upload-file"
-                    />
-                    <label for="upload-file" class="file-label">
-                        <span class="material-icons">upload_file</span>
-                        <span class="file-text">
-                            {selectedFile ? selectedFile.name : 'Choose file to upload...'}
-                        </span>
-                    </label>
-                </div>
-            </div>
-            
-            <div class="modal-actions">
-                <button class="btn-secondary" on:click={() => uploadModal = false}>
-                    Cancel
-                </button>
-                <button 
-                    class="btn-primary" 
-                    on:click={() => uploadFile(activeTab)} 
-                    disabled={!selectedFile || loading}
-                >
-                    {loading ? 'Uploading...' : 'Upload'}
-                </button>
-            </div>
+  <div class="modal-overlay" role="dialog" aria-labelledby="upload-modal-title" on:click={() => uploadModal = false}>
+    <div class="modal" role="document">
+      <div class="modal-header">
+        <h2 id="upload-modal-title">Upload File to {activeTab === 'gdrive' ? 'Google Drive' : 'Mega'}</h2>
+        <button class="close-btn" on:click={() => uploadModal = false} aria-label="Close upload dialog">
+          <span class="material-icons">close</span>
+        </button>
+      </div>
+      <div class="modal-content">
+        <div class="file-upload">
+          <input 
+            type="file" 
+            id="upload-file" 
+            accept="*/*"
+            on:change={(e) => selectedFile = e.target.files[0]}
+            aria-label="Select file to upload"
+          />
+          <label for="upload-file" class="file-label">
+            <span class="material-icons">upload_file</span>
+            <span class="file-text">
+              {selectedFile ? selectedFile.name : 'Choose file to upload...'}
+            </span>
+          </label>
         </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-secondary" on:click={() => uploadModal = false}>
+          Cancel
+        </button>
+        <button 
+          class="btn-primary" 
+          on:click={() => uploadFile(activeTab)}
+          disabled={!selectedFile}
+          aria-label="Upload selected file to {activeTab === 'gdrive' ? 'Google Drive' : 'Mega'}"
+        >
+          {loading ? 'Uploading...' : 'Upload'}
+        </button>
+      </div>
     </div>
+  </div>
 {/if}
 
 <!-- Settings Modal -->
 {#if settingsModal}
-    <div class="modal-overlay" on:click={() => settingsModal = false}>
-        <div class="modal" on:click|stopPropagation>
-            <div class="modal-header">
-                <h2>Cloud Storage Settings</h2>
-                <button class="close-btn" on:click={() => settingsModal = false}>
-                    <span class="material-icons">close</span>
-                </button>
-            </div>
-            
-            <div class="modal-content">
-                <div class="settings-section">
-                    <h3>Google Drive</h3>
-                    <div class="form-group">
-                        <label for="gdrive-client-id">Client ID</label>
-                        <input 
-                            type="text" 
-                            id="gdrive-client-id" 
-                            bind:value={settings.gdrive.clientId}
-                            placeholder="Your Google Drive Client ID"
-                        />
-                    </div>
-                    <div class="form-group">
-                        <label for="gdrive-client-secret">Client Secret</label>
-                        <input 
-                            type="password" 
-                            id="gdrive-client-secret" 
-                            bind:value={settings.gdrive.clientSecret}
-                            placeholder="Your Google Drive Client Secret"
-                        />
-                    </div>
-                    <div class="form-group">
-                        <label>
-                            <input 
-                                type="checkbox" 
-                                bind:checked={settings.gdrive.enabled}
-                            />
-                            Enable Google Drive
-                        </label>
-                    </div>
-                </div>
-
-                <div class="settings-section">
-                    <h3>Mega</h3>
-                    <div class="form-group">
-                        <label>
-                            <input 
-                                type="checkbox" 
-                                bind:checked={settings.mega.enabled}
-                            />
-                            Enable Mega
-                        </label>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="modal-actions">
-                <button class="btn-secondary" on:click={() => settingsModal = false}>
-                    Cancel
-                </button>
-                <button class="btn-primary" on:click={() => settingsModal = false}>
-                    Save Settings
-                </button>
-            </div>
+  <div class="modal-overlay" role="dialog" aria-labelledby="settings-modal-title" on:click|stopPropagation>
+    <div class="modal" role="document">
+      <div class="modal-header">
+        <h2 id="settings-modal-title">Cloud Storage Settings</h2>
+        <button class="close-btn" on:click={() => settingsModal = false} aria-label="Close settings dialog">
+          <span class="material-icons">close</span>
+        </button>
+      </div>
+      <div class="modal-content">
+        <div class="settings-section">
+          <h3>Google Drive</h3>
+          <div class="form-group">
+            <label for="gdrive-client-id">Client ID</label>
+            <input 
+              type="text" 
+              id="gdrive-client-id"
+              bind:value={$settings.gdrive.clientId}
+              placeholder="Your Google Drive Client ID"
+              aria-label="Google Drive Client ID"
+            />
+          </div>
+          <div class="form-group">
+            <label for="gdrive-client-secret">Client Secret</label>
+            <input 
+              type="password" 
+              id="gdrive-client-secret"
+              bind:value={$settings.gdrive.clientSecret}
+              placeholder="Your Google Drive Client Secret"
+              aria-label="Google Drive Client Secret"
+            />
+          </div>
+          <div class="form-group">
+            <label>
+              <input 
+                type="checkbox" 
+                bind:checked={$settings.gdrive.enabled}
+                aria-label="Enable Google Drive"
+              />
+              Enable Google Drive
+            </label>
+          </div>
         </div>
+        
+        <div class="settings-section">
+          <h3>Mega</h3>
+          <div class="form-group">
+            <label for="mega-email">Email</label>
+            <input 
+              type="email" 
+              id="mega-email"
+              bind:value={$settings.mega.email}
+              placeholder="your-email@mega.nz"
+              aria-label="Mega email address"
+            />
+          </div>
+          <div class="form-group">
+            <label for="mega-password">Password</label>
+            <input 
+              type="password" 
+              id="mega-password"
+              bind:value={$settings.mega.password}
+              placeholder="Your Mega password"
+              aria-label="Mega password"
+            />
+          </div>
+          <div class="form-group">
+            <label>
+              <input 
+                type="checkbox" 
+                bind:checked={$settings.mega.enabled}
+                aria-label="Enable Mega"
+              />
+              Enable Mega
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-secondary" on:click={() => settingsModal = false}>
+          Cancel
+        </button>
+        <button class="btn-primary" on:click={() => settingsModal = false}>
+          Save Settings
+        </button>
+      </div>
     </div>
+  </div>
 {/if}
 
 <style>

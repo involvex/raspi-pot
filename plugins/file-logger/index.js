@@ -1,4 +1,4 @@
-const BasePlugin = require('../../base-plugin');
+const BasePlugin = require('../../server/base-plugin.js');
 const fs = require('fs-extra');
 const path = require('path');
 

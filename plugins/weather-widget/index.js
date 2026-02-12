@@ -1,4 +1,4 @@
-const BasePlugin = require('../../base-plugin');
+const BasePlugin = require('../../server/base-plugin.js');
 
 class WeatherWidgetPlugin extends BasePlugin {
   constructor(manifest) {

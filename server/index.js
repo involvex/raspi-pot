@@ -10,7 +10,7 @@ const jwt = require('jsonwebtoken');
 const si = require('systeminformation');
 const fs_extra = require('fs-extra');
 const multer = require('multer');
-const PluginManager = require('./plugin-manager');
+const PluginManager = require('./plugin-manager.js');
 require('dotenv').config();
 
 const app = express();
@@ -34,6 +34,28 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'raspberry';
 // Initialize Plugin Manager
 const pluginManager = new PluginManager();
 
+// Initialize plugins
+(async() => {
+  try {
+    console.log('Initializing plugins...');
+    await pluginManager.loadAllPlugins();
+
+    // Enable cloud storage plugin by default
+    console.log(
+      'Available plugins:',
+      pluginManager.getPluginList().map(p => p.name)
+    );
+    await pluginManager.enablePlugin('cloud-storage');
+    console.log('Cloud storage plugin enabled successfully');
+    console.log(
+      'Enabled plugins after enabling:',
+      pluginManager.getEnabledPlugins().map(p => p.name)
+    );
+  } catch (error) {
+    console.error('Failed to initialize plugins:', error);
+  }
+})();
+
 const io = new Server(server, {
   cors: {
     origin: '*', // Allow all for dev, tighten for prod
@@ -43,6 +65,47 @@ const io = new Server(server, {
 
 app.use(cors());
 app.use(express.json());
+
+// Plugin HTTP Request Middleware
+app.use('/api/cloud-storage', (req, res, next) => {
+  try {
+    const enabledPlugins = pluginManager.getEnabledPlugins();
+    const cloudStoragePlugin = enabledPlugins.find(p => p.name === 'cloud-storage');
+
+    console.log('Cloud storage plugin check:', {
+      enabledPlugins: enabledPlugins.map(p => p.name),
+      cloudStoragePlugin: !!cloudStoragePlugin,
+      path: req.path
+    });
+
+    if (
+      cloudStoragePlugin &&
+      cloudStoragePlugin.instance &&
+      cloudStoragePlugin.instance.onHttpRequest
+    ) {
+      cloudStoragePlugin.instance.onHttpRequest(req, res, next);
+    } else {
+      console.log('Cloud storage plugin not ready, passing to next');
+      next();
+    }
+  } catch (error) {
+    console.error('Plugin middleware error:', error);
+    next();
+  }
+});
+
+// Fallback cloud storage routes (direct implementation)
+app.get('/api/cloud-storage/gdrive/status', (req, res) => {
+  res.json({ success: true, authenticated: false, configured: false });
+});
+
+app.get('/api/cloud-storage/mega/status', (req, res) => {
+  res.json({ success: true, authenticated: false, configured: false });
+});
+
+app.post('/api/cloud-storage/mega/login', (req, res) => {
+  res.json({ success: false, error: 'Plugin not properly loaded' });
+});
 
 // Plugin Management Routes
 app.get('/api/plugins', async(req, res) => {
@@ -568,11 +631,8 @@ io.on('connection', socket => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, async() => {
+server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-
-  // Load all plugins
-  await pluginManager.loadAllPlugins();
 
   let cachedStats = {
     disk_used: '0.0 GB',

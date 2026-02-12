@@ -6,6 +6,7 @@
     import { page } from '$app/stores';
     import Sidebar from '$lib/components/Sidebar.svelte';
     import { socket } from '$lib/stores/socket';
+    import { settings } from '$lib/stores/settings';
 
 	let { children } = $props();
 

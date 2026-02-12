@@ -1,4 +1,4 @@
-const BasePlugin = require('../../base-plugin');
+const BasePlugin = require('../../server/base-plugin.js');
 const { google } = require('googleapis');
 const { Mega } = require('megajs');
 const fs = require('fs-extra');
