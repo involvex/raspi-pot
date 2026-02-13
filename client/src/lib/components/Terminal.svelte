@@ -11,7 +11,6 @@
   let unsubscribe;
 
   onMount(() => {
-    // Initialize xterm.js
     term = new Terminal({
       cursorBlink: true,
       fontFamily: '"JetBrains Mono", "Cascadia Code", "Fira Code", monospace',
@@ -34,57 +33,46 @@
 
     fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
-
     term.open(terminalContainer);
     fitAddon.fit();
 
-    unsubscribe = socket.subscribe($socket => {
-        if ($socket) {
-            // Socket events
-            if ($socket.connected) {
-                onConnect($socket);
-            }
-            $socket.on('connect', () => onConnect($socket));
-            $socket.on('terminal:output', (data) => {
-                term.write(data);
-            });
-            $socket.on('disconnect', () => {
-                term.write('\r\n*** Disconnected from backend ***\r\n');
-            });
+    unsubscribe = socket.subscribe(s => {
+        if (s) {
+            if (s.connected) onConnect(s);
+            s.on('connect', () => onConnect(s));
+            s.on('terminal:output', (data) => term.write(data));
+            s.on('disconnect', () => term.write('\r\n*** Disconnected from backend ***\r\n'));
         }
     });
 
     function onConnect(s) {
       term.write('\r\n*** Connected to backend ***\r\n');
-      const dims = { cols: term.cols, rows: term.rows };
-      s.emit('terminal:start', dims);
+      s.emit('terminal:start', { cols: term.cols, rows: term.rows });
     }
 
-    // Terminal events
     term.onData((data) => {
-      if ($socket) $socket.emit('terminal:input', data);
+      socket.subscribe(s => { if (s) s.emit('terminal:input', data); })();
     });
 
-    // Handle resize
     const handleResize = () => {
         fitAddon.fit();
-        if ($socket && $socket.connected) {
-            $socket.emit('terminal:resize', { cols: term.cols, rows: term.rows });
-        }
+        socket.subscribe(s => {
+            if (s && s.connected) s.emit('terminal:resize', { cols: term.cols, rows: term.rows });
+        })();
     };
     window.addEventListener('resize', handleResize);
-
-    // Initial focus
     term.focus();
 
     return () => {
       window.removeEventListener('resize', handleResize);
       if (unsubscribe) unsubscribe();
-      if ($socket) {
-          $socket.off('terminal:output');
-          $socket.off('connect');
-          $socket.off('disconnect');
-      }
+      socket.subscribe(s => {
+          if (s) {
+              s.off('terminal:output');
+              s.off('connect');
+              s.off('disconnect');
+          }
+      })();
       if (term) term.dispose();
     };
   });
@@ -93,12 +81,5 @@
 <div class="terminal-wrapper" bind:this={terminalContainer}></div>
 
 <style>
-  .terminal-wrapper {
-    width: 100%;
-    height: 100%;
-    background: #0a0f1a;
-    padding: 1rem;
-    box-sizing: border-box;
-    overflow: hidden;
-  }
+  .terminal-wrapper { width: 100%; height: 100%; background: #0a0f1a; padding: 1rem; box-sizing: border-box; overflow: hidden; }
 </style>

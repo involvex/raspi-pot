@@ -25,7 +25,7 @@
                             <span class="status-text">{task.status === 'active' ? `${task.progress}%` : task.status}</span>
                         </div>
                         {#if task.status !== 'active'}
-                            <button class="close-btn" on:click={() => clearTask(task.id)}>
+                            <button class="close-btn" onclick={() => clearTask(task.id)}>
                                 <span class="material-icons">close</span>
                             </button>
                         {/if}

@@ -6,24 +6,24 @@
     import { page } from '$app/stores';
     import Sidebar from '$lib/components/Sidebar.svelte';
     import { socket } from '$lib/stores/socket';
-    import { settings } from '$lib/stores/settings';
 
 	let { children } = $props();
 
-    onMount(() => {
-        // Watch auth state
-        auth.subscribe(state => {
-            // If not authenticated and not on login page, redirect
-            if (!state.isAuthenticated && $page.url.pathname !== '/login') {
-                goto('/login');
-            }
-        });
+    // Use $effect for redirection - cleaner in Svelte 5
+    $effect(() => {
+        if (!$auth.isAuthenticated && $page.url.pathname !== '/login') {
+            goto('/login');
+        }
+    });
 
+    onMount(() => {
         // Global socket notifications
-        const unmountSocket = socket.subscribe($socket => {
-            if ($socket) {
-                $socket.on('notification', (notif) => {
-                    alert(`${notif.type.toUpperCase()}: ${notif.message}`);
+        const unmountSocket = socket.subscribe(s => {
+            if (s) {
+                s.on('notification', (notif) => {
+                    if (notif && notif.message) {
+                        alert(`${notif.type?.toUpperCase() || 'INFO'}: ${notif.message}`);
+                    }
                 });
             }
         });

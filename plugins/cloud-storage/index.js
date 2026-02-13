@@ -73,34 +73,19 @@ class CloudStoragePlugin extends BasePlugin {
   async onHttpRequest(req, res, next) {
     // Handle all cloud storage API routes
     // When mounted on /api/cloud-storage, req.path is relative to that mount point
-    // We check both for robustness
-    if (
-      req.path.startsWith('/api/cloud-storage/') ||
-      req.baseUrl === '/api/cloud-storage' ||
-      req.originalUrl.startsWith('/api/cloud-storage/')
-    ) {
-      await this.handleCloudStorageRequest(req, res);
-      return;
-    }
-    next();
+    // e.g. for /api/cloud-storage/gdrive/status, req.path is /gdrive/status
+    await this.handleCloudStorageRequest(req, res, next);
   }
 
-  async handleCloudStorageRequest(req, res) {
+  async onTelemetryData(data) {
+    // This plugin doesn't need telemetry data yet
+  }
+
+  async handleCloudStorageRequest(req, res, next) {
     try {
-      // Use req.path which is relative to the mount point (/api/cloud-storage)
       const pathParts = req.path.split('/').filter(p => p);
-
-      // If req.path was "/api/cloud-storage/gdrive/list", pathParts might be ["api", "cloud-storage", "gdrive", "list"]
-      // or if mounted, it might be ["gdrive", "list"]
-      let service, action;
-
-      if (pathParts[0] === 'api' && pathParts[1] === 'cloud-storage') {
-        service = pathParts[2];
-        action = pathParts[3];
-      } else {
-        service = pathParts[0];
-        action = pathParts[1];
-      }
+      const service = pathParts[0]; // gdrive, mega, settings
+      const action = pathParts[1]; // auth, list, upload, status, etc.
 
       if (service === 'settings' && req.method === 'POST') {
         await this.updateSettings(req.body);
@@ -112,7 +97,8 @@ class CloudStoragePlugin extends BasePlugin {
       }
 
       if (!service || !action) {
-        return res.status(400).json({ success: false, error: 'Invalid request' });
+        // If not handled, pass to next (fallback routes in server/index.js)
+        return next();
       }
 
       switch (service) {
@@ -123,11 +109,13 @@ class CloudStoragePlugin extends BasePlugin {
           await this.handleMegaRequest(req, res, action);
           break;
         default:
-          res.status(400).json({ success: false, error: 'Unknown service' });
+          next();
       }
     } catch (error) {
       this.error(`Cloud storage request error: ${error.message}`);
-      res.status(500).json({ success: false, error: error.message });
+      if (!res.headersSent) {
+        res.status(500).json({ success: false, error: error.message });
+      }
     }
   }
 
@@ -345,14 +333,6 @@ class CloudStoragePlugin extends BasePlugin {
     }
   }
 
-  async handleGDriveStatus(req, res) {
-    res.json({
-      success: true,
-      authenticated: !!this.gdriveTokens,
-      configured: !!(this.settings.gdrive.clientId && this.settings.gdrive.clientSecret),
-    });
-  }
-
   // Mega Integration
   async handleMegaRequest(req, res, action) {
     switch (action) {
@@ -568,8 +548,8 @@ class CloudStoragePlugin extends BasePlugin {
     // Merge new settings with existing
     this.settings = { ...this.settings, ...newSettings };
 
-    // Update derived values
-    this.uploadDir = path.join(__dirname, '../../../', this.settings.uploadPath || './uploads');
+    // Update derived values - path is relative to root
+    this.uploadDir = path.resolve(__dirname, '../../../', this.settings.uploadPath || './uploads');
     await this.ensureUploadDirectory();
 
     // Reconfigure multer for new size limits
@@ -594,6 +574,18 @@ class CloudStoragePlugin extends BasePlugin {
     }
 
     this.log('Cloud storage settings updated and persisted');
+  }
+
+  async handleGDriveStatus(req, res) {
+    res.json({
+      success: true,
+      authenticated: !!this.gdriveTokens,
+      configured: !!(
+        this.settings.gdrive &&
+        this.settings.gdrive.clientId &&
+        this.settings.gdrive.clientSecret
+      ),
+    });
   }
 
   getSettings() {

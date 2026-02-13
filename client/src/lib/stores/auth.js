@@ -5,7 +5,8 @@ const storedToken = browser ? localStorage.getItem('token') : null;
 
 export const auth = writable({
   isAuthenticated: !!storedToken,
-  token: storedToken
+  token: storedToken,
+  user: 'admin'
 });
 
 auth.subscribe(value => {

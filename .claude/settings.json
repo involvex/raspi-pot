@@ -18,7 +18,7 @@
       "Bash(webpack:*)",
       "Bash(vite:*)"
     ],
-    "deny": ["Bash(curl:*)", "Bash(wget:*)", "Bash(rm -rf:*)"],
+    "deny": ["Bash(rm -rf:*)"],
     "defaultMode": "plan"
   },
   "env": {

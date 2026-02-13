@@ -12,7 +12,9 @@
 
   function handlePower(action) {
       if (confirm(`Are you sure you want to ${action}?`)) {
-          if ($socket) $socket.emit('system:power', action);
+          socket.subscribe(s => {
+              if (s) s.emit('system:power', action);
+          })();
       }
   }
 </script>
@@ -98,17 +100,17 @@
           <span class="username">{$auth.user || 'admin'}</span>
           <span class="host">root@raspberrypi</span>
       </div>
-      <button class="icon-btn logout" on:click={handleLogout} title="Logout">
+      <button class="icon-btn logout" onclick={handleLogout} title="Logout">
           <span class="material-icons">logout</span>
       </button>
   </div>
 
   <div class="power-actions">
-      <button class="reboot" on:click={() => handlePower('reboot')}>
+      <button class="reboot" onclick={() => handlePower('reboot')}>
           <span class="material-icons">restart_alt</span>
           Reboot
       </button>
-      <button class="shutdown" on:click={() => handlePower('shutdown')}>
+      <button class="shutdown" onclick={() => handlePower('shutdown')}>
           <span class="material-icons">power_settings_new</span>
           Shutdown
       </button>

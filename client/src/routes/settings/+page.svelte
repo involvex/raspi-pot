@@ -2,13 +2,13 @@
     import { socket } from '$lib/stores/socket';
     import { onMount } from 'svelte';
 
-    let currentPassword = '';
-    let newPassword = '';
-    let confirmPassword = '';
-    let error = '';
+    let currentPassword = $state('');
+    let newPassword = $state('');
+    let confirmPassword = $state('');
+    let error = $state('');
 
-    let telemetryInterval = 2000;
-    let processInterval = 10000;
+    let telemetryInterval = $state(2000);
+    let processInterval = $state(10000);
 
     async function updatePassword() {
         error = '';
@@ -25,12 +25,14 @@
             return;
         }
 
-        if ($socket) {
-            $socket.emit('settings:update_password', { currentPassword, newPassword });
-            currentPassword = '';
-            newPassword = '';
-            confirmPassword = '';
-        }
+        socket.subscribe(s => {
+            if (s) {
+                s.emit('settings:update_password', { currentPassword, newPassword });
+                currentPassword = '';
+                newPassword = '';
+                confirmPassword = '';
+            }
+        })();
     }
 </script>
 
@@ -50,7 +52,7 @@
                 <h2>Security</h2>
             </div>
             <div class="card-body">
-                <form on:submit|preventDefault={updatePassword}>
+                <form onsubmit={e => { e.preventDefault(); updatePassword(); }}>
                     <div class="form-group">
                         <label for="curr">Current Password</label>
                         <input type="password" id="curr" bind:value={currentPassword} />

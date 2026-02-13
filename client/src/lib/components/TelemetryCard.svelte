@@ -1,12 +1,33 @@
 <script>
-    export let title;
-    export let value;
-    export let unit = '';
-    export let color = '#2b6cee';
-    export let icon = 'analytics';
-    export let status = 'Optimal';
-    export let statusColor = '#06d6a0';
-    export let details = []; // [{label: 'Total', value: '8.0 GB'}]
+    /**
+     * @typedef {Object} Detail
+     * @property {string} label
+     * @property {string|number} value
+     */
+
+    /**
+     * @typedef {Object} Props
+     * @property {string} title
+     * @property {string|number} value
+     * @property {string} [unit]
+     * @property {string} [color]
+     * @property {string} [icon]
+     * @property {string} [status]
+     * @property {string} [statusColor]
+     * @property {Detail[]} [details]
+     */
+
+    /** @type {Props} */
+    let {
+        title,
+        value,
+        unit = '',
+        color = '#2b6cee',
+        icon = 'analytics',
+        status = 'Optimal',
+        statusColor = '#06d6a0',
+        details = []
+    } = $props();
 </script>
 
 <div class="card">
@@ -25,7 +46,7 @@
         <span class="unit">{unit}</span>
     </div>
 
-    {#if details.length > 0}
+    {#if details && details.length > 0}
         <div class="details">
             {#each details as detail}
                 <div class="detail-item">

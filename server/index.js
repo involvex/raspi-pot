@@ -77,13 +77,28 @@ app.use('/api/cloud-storage', async(req, res, next) => {
       cloudStoragePlugin.instance &&
       cloudStoragePlugin.instance.onHttpRequest
     ) {
-      await cloudStoragePlugin.instance.onHttpRequest(req, res, next);
+      // Create a wrapped next that only gets called if the plugin explicitly wants it
+      let nextCalled = false;
+      const wrappedNext = () => {
+        nextCalled = true;
+        next();
+      };
+
+      await cloudStoragePlugin.instance.onHttpRequest(req, res, wrappedNext);
+
+      // If the plugin didn't send a response and didn't call next, we should probably call next
+      // But usually plugins will either res.send or call next()
+      if (!res.headersSent && !nextCalled) {
+        next();
+      }
     } else {
       next();
     }
   } catch (error) {
     console.error('Plugin middleware error:', error);
-    next();
+    if (!res.headersSent) {
+      next();
+    }
   }
 });
 
@@ -638,6 +653,62 @@ io.on('connection', socket => {
       socket.emit('scripts:output', `\n> Process finished with code ${code}\n`);
       socket.emit('scripts:finished');
     });
+  });
+
+  // --- GPIO Management ---
+  let pins = Array.from({ length: 40 }, (_, i) => ({
+    number: i + 1,
+    mode: 'IN',
+    state: 'LOW'
+  }));
+
+  // Attempt to sync with real hardware if 'gpio' command exists
+  function syncHardware() {
+    exec('gpio readall', (err, stdout) => {
+      if (!err && stdout) {
+        // Parsing wiringPi readall output is complex, but we can at least detect it works
+        console.log('Hardware GPIO detected');
+      }
+    });
+  }
+  syncHardware();
+
+  socket.on('gpio:get_pins', () => {
+    socket.emit('gpio:pins_data', pins);
+  });
+
+  socket.on('gpio:toggle', pinNumber => {
+    const pin = pins.find(p => p.number === pinNumber);
+    if (pin) {
+      pin.mode = pin.mode === 'IN' ? 'OUT' : 'IN';
+
+      // Real hardware call
+      const cmd = `gpio mode ${pinNumber} ${pin.mode === 'OUT' ? 'out' : 'in'}`;
+      exec(cmd, err => {
+        if (!err) console.log(`GPIO: Pin ${pinNumber} set to ${pin.mode}`);
+      });
+
+      socket.emit('gpio:pins_data', pins);
+      socket.emit('notification', {
+        type: 'success',
+        message: `Pin ${pinNumber} set to ${pin.mode}`
+      });
+    }
+  });
+
+  socket.on('gpio:set_state', ({ pinNumber, state }) => {
+    const pin = pins.find(p => p.number === pinNumber);
+    if (pin && pin.mode === 'OUT') {
+      pin.state = state;
+
+      // Real hardware call
+      const cmd = `gpio write ${pinNumber} ${state === 'HIGH' ? 1 : 0}`;
+      exec(cmd, err => {
+        if (!err) console.log(`GPIO: Pin ${pinNumber} written ${state}`);
+      });
+
+      socket.emit('gpio:pins_data', pins);
+    }
   });
 
   socket.on('disconnect', () => {
