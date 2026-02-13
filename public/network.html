@@ -8,7 +8,7 @@
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <style>
         .net-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
-        .net-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 1rem; overflow: hidden; }
+        .net-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 1rem; overflow: hidden; margin-bottom: 1.5rem; }
         .net-card-header { padding: 1.25rem; background: var(--bg-header); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 0.75rem; font-weight: bold; font-size: 0.9rem; }
         .net-list { display: flex; flex-direction: column; }
         .net-item { padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
@@ -23,6 +23,13 @@
         .modal-content { background: var(--bg-card); padding: 2rem; border-radius: 1rem; width: 320px; border: 1px solid var(--border); }
         .modal-content input { width: 100%; padding: 0.75rem; margin: 1rem 0; background: var(--bg-dark); border: 1px solid var(--border); color: white; border-radius: 0.5rem; box-sizing: border-box; }
         .signal-icon { vertical-align: middle; margin-right: 0.5rem; font-size: 1.2rem; }
+        
+        .status-badge { padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.7rem; font-weight: bold; text-transform: uppercase; }
+        .status-connected { background: rgba(6, 214, 160, 0.1); color: var(--success); }
+        .status-disconnected { background: rgba(239, 71, 111, 0.1); color: var(--danger); }
+        
+        .dns-input-group { display: flex; gap: 0.5rem; margin-top: 1rem; }
+        .dns-input-group input { flex: 1; background: var(--bg-dark); border: 1px solid var(--border); color: white; padding: 0.5rem; border-radius: 0.4rem; }
     </style>
 </head>
 <body>
@@ -50,12 +57,12 @@
     <main>
         <header>
             <div class="welcome">
-                <h1>Network Manager</h1>
+                <h1>Network Management</h1>
                 <div class="status-pill" style="margin-top: 1rem;">
                     <span class="dot pulse"></span>
                     <span class="status-text">Active</span>
-                    <div id="ipList" class="ip-list">
-                        <span class="ip-tag disconnected">Scanning IPs...</span>
+                    <div id="headerIpList" class="ip-list">
+                        <span class="ip-tag disconnected">Scanning...</span>
                     </div>
                 </div>
             </div>
@@ -64,19 +71,35 @@
             </button>
         </header>
 
+        <section class="net-card">
+            <div class="net-card-header"><span class="material-icons">lan</span> Hardware Interfaces (Ethernet & WiFi)</div>
+            <div id="interfaceStatus" class="net-list">
+                <div style="padding: 2rem; text-align: center; color: var(--text-muted);">Gathering in-depth status...</div>
+            </div>
+        </section>
+
         <div class="net-grid">
             <section class="net-card">
-                <div class="net-card-header"><span class="material-icons">wifi</span> Available Networks</div>
+                <div class="net-card-header"><span class="material-icons">wifi</span> Available WiFi</div>
                 <div id="wifiList" class="net-list">
-                    <div style="padding: 3rem; text-align: center; color: var(--text-muted);">
-                        <span class="material-icons" style="font-size: 3rem; display: block; margin-bottom: 1rem; opacity: 0.3;">wifi_find</span>
-                        Click Scan to find nearby networks
-                    </div>
+                    <div style="padding: 2rem; text-align: center; color: var(--text-muted);">Click Scan to find networks</div>
                 </div>
             </section>
 
             <section class="net-card">
-                <div class="net-card-header"><span class="material-icons">history</span> Saved Profiles</div>
+                <div class="net-card-header"><span class="material-icons">dns</span> DNS Configuration</div>
+                <div style="padding: 1.5rem;">
+                    <div id="dnsList" style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem;">
+                        <!-- DNS tags here -->
+                    </div>
+                    <label style="font-size: 0.7rem; color: var(--text-muted); font-weight: bold; text-transform: uppercase;">Set New DNS Servers</label>
+                    <div class="dns-input-group">
+                        <input type="text" id="dnsInput1" placeholder="Primary (e.g. 8.8.8.8)">
+                        <input type="text" id="dnsInput2" placeholder="Secondary (e.g. 1.1.1.1)">
+                    </div>
+                    <button class="btn-sm btn-primary-sm" style="width: 100%; margin-top: 1rem; padding: 0.6rem;" onclick="updateDns()">Apply DNS Changes</button>
+                </div>
+                <div class="net-card-header" style="border-top: 1px solid var(--border);"><span class="material-icons">history</span> Saved Profiles</div>
                 <div id="savedList" class="net-list">
                     <div style="padding: 2rem; text-align: center; color: var(--text-muted);">Loading profiles...</div>
                 </div>
@@ -87,7 +110,6 @@
     <div id="connectModal" class="modal">
         <div class="modal-content">
             <h3 id="modalSsid" style="margin: 0;">Network Name</h3>
-            <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">Enter the password for this network</p>
             <input type="password" id="wifiPass" placeholder="WiFi Password" onkeydown="if(event.key==='Enter') doConnect()">
             <div style="display: flex; gap: 1rem;">
                 <button class="btn-sm" style="flex: 1; padding: 0.75rem;" onclick="closeModal()">Cancel</button>
@@ -101,10 +123,40 @@
     <script>
         const wifiList = document.getElementById('wifiList');
         const savedList = document.getElementById('savedList');
+        const interfaceStatus = document.getElementById('interfaceStatus');
+        const dnsList = document.getElementById('dnsList');
         let selectedSsid = '';
 
         socket.on('connect', () => {
+            refreshAll();
+        });
+
+        function refreshAll() {
             socket.emit('network:get_saved');
+            socket.emit('network:get_status');
+        }
+
+        socket.on('network:status_data', (data) => {
+            // Render DNS
+            dnsList.innerHTML = data.dns.map(d => `<span class="ip-tag">${d}</span>`).join('') || '<span style="color: var(--text-muted); font-size: 0.8rem;">No custom DNS set</span>';
+            
+            // Render Interfaces
+            interfaceStatus.innerHTML = data.devices.map(d => `
+                <div class="net-item">
+                    <div class="net-info">
+                        <div style="display: flex; align-items: center; gap: 0.75rem;">
+                            <span class="material-icons" style="color: var(--text-muted);">${d.type === 'wifi' ? 'wifi' : 'settings_ethernet'}</span>
+                            <span class="net-name">${d.device} <span style="font-weight: normal; font-size: 0.7rem; color: var(--text-muted);">(${d.type})</span></span>
+                            <span class="status-badge ${d.state.includes('connected') ? 'status-connected' : 'status-disconnected'}">${d.state}</span>
+                        </div>
+                        <div class="net-detail" style="margin-left: 2rem;">
+                            ${d.connection !== '--' ? `<span style="color: var(--primary); font-weight: bold;">${d.connection}</span> • ` : ''}
+                            IP: <span style="color: var(--text-main);">${d.ip || 'None'}</span> • 
+                            GW: <span style="color: var(--text-main);">${d.gateway || 'None'}</span>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
         });
 
         socket.on('network:scan_results', (data) => {
@@ -114,10 +166,9 @@
                 let color = 'var(--success)';
                 if (n.signal < 30) { icon = 'network_wifi_1_bar'; color = 'var(--danger)'; }
                 else if (n.signal < 60) { icon = 'network_wifi_2_bar'; color = 'var(--warning)'; }
-                else if (n.signal < 85) { icon = 'network_wifi_3_bar'; }
-
+                
                 return `
-                <div class="net-item ${n.connected ? 'connected' : ''}">
+                <div class="net-item">
                     <div class="net-info">
                         <div class="net-name">
                             <span class="material-icons signal-icon" style="color: ${color}">${icon}</span>
@@ -126,7 +177,7 @@
                         <span class="net-detail">${n.security} • ${n.signal}% Signal</span>
                     </div>
                     <div>
-                        ${n.connected ? '<span class="text-success" style="font-size: 0.75rem; font-weight: bold; text-transform: uppercase;">Connected</span>' : 
+                        ${n.connected ? '<span class="status-badge status-connected">Connected</span>' : 
                         `<button class="btn-sm btn-primary-sm" onclick="openConnect('${n.ssid}')">Connect</button>`}
                     </div>
                 </div>
@@ -138,21 +189,28 @@
                 <div class="net-item">
                     <div class="net-info">
                         <span class="net-name">${c.name}</span>
-                        <span class="net-detail">${c.type} ${c.device !== '--' ? `• ${c.device}` : ''}</span>
+                        <span class="net-detail">${c.type}</span>
                     </div>
                     <button class="btn-sm" style="color: var(--danger); background: rgba(239, 71, 111, 0.1);" onclick="deleteConn('${c.name}')">Forget</button>
                 </div>
-            `).join('') || '<div style="padding: 2rem; text-align: center;">No saved connections</div>';
+            `).join('') || '<div style="padding: 2rem; text-align: center;">No saved profiles</div>';
         });
 
-        socket.on('network:refresh', () => {
-            socket.emit('network:get_saved');
-            socket.emit('network:scan');
-        });
+        socket.on('network:refresh', refreshAll);
 
         function scanWifi() {
             document.getElementById('scanBtn').innerHTML = '<span class="material-icons spinning" style="font-size: 1.1rem; vertical-align: bottom;">sync</span> Scanning...';
             socket.emit('network:scan');
+        }
+
+        function updateDns() {
+            const dns1 = document.getElementById('dnsInput1').value;
+            const dns2 = document.getElementById('dnsInput2').value;
+            const servers = [];
+            if (dns1) servers.push(dns1);
+            if (dns2) servers.push(dns2);
+            if (servers.length === 0) return alert('Enter at least one DNS server');
+            socket.emit('network:set_dns', servers);
         }
 
         function openConnect(ssid) {

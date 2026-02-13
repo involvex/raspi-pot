@@ -243,6 +243,71 @@ io.on('connection', socket => {
   });
 
   // --- Network Management ---
+  socket.on('network:get_status', async() => {
+    try {
+      const [interfaces, dns] = await Promise.all([
+        si.networkInterfaces(),
+        new Promise((resolve) => {
+          exec('nmcli -t -f IP4.DNS device show', (err, stdout) => {
+            if (err) return resolve([]);
+            const dnsList = stdout.split('\n')
+              .filter(line => line.startsWith('IP4.DNS'))
+              .map(line => line.split(':')[1]);
+            resolve([...new Set(dnsList)]);
+          });
+        })
+      ]);
+
+      // Detailed per-interface info using nmcli for deep status
+      exec('nmcli -t -f DEVICE,TYPE,STATE,CONNECTION,IP4.ADDRESS,IP4.GATEWAY device show', (err, stdout) => {
+        if (err) return socket.emit('notification', { type: 'error', message: 'Failed to fetch deep network status' });
+
+        const devices = [];
+        const lines = stdout.split('\n');
+        let currentDevice = {};
+
+        lines.forEach(line => {
+          if (!line.trim()) {
+            if (currentDevice.device) devices.push(currentDevice);
+            currentDevice = {};
+            return;
+          }
+          const [key, value] = line.split(':');
+          if (key === 'GENERAL.DEVICE') currentDevice.device = value;
+          if (key === 'GENERAL.TYPE') currentDevice.type = value;
+          if (key === 'GENERAL.STATE') currentDevice.state = value;
+          if (key === 'GENERAL.CONNECTION') currentDevice.connection = value;
+          if (key === 'IP4.ADDRESS[1]') currentDevice.ip = value;
+          if (key === 'IP4.GATEWAY') currentDevice.gateway = value;
+        });
+        if (currentDevice.device) devices.push(currentDevice);
+
+        socket.emit('network:status_data', { devices, dns });
+      });
+    } catch (e) {
+      console.error('Network status error:', e);
+    }
+  });
+
+  socket.on('network:set_dns', (dnsServers) => {
+    // dnsServers: array of strings ['8.8.8.8', '1.1.1.1']
+    // Note: Setting DNS globally via nmcli on Raspbian usually requires modifying the connection
+    // For simplicity, we'll try to set it for the active connection
+    exec('nmcli -t -f NAME connection show --active | head -n 1', (err, stdout) => {
+      if (err || !stdout.trim()) return socket.emit('notification', { type: 'error', message: 'No active connection found to set DNS' });
+      
+      const connName = stdout.trim();
+      const dnsStr = dnsServers.join(' ');
+      exec(`sudo nmcli connection modify "${connName}" ipv4.dns "${dnsStr}" && sudo nmcli connection up "${connName}"`, (err) => {
+        if (err) socket.emit('notification', { type: 'error', message: 'Failed to update DNS' });
+        else {
+          socket.emit('notification', { type: 'success', message: `DNS updated for ${connName}` });
+          socket.emit('network:refresh');
+        }
+      });
+    });
+  });
+
   socket.on('network:scan', () => {
     exec('sudo nmcli device wifi rescan', () => {
       exec('nmcli -t -f active,ssid device wifi | grep \'^yes\' | cut -d: -f2', (err, activeSsid) => {
@@ -313,12 +378,24 @@ io.on('connection', socket => {
     }
     try {
       const envPath = path.join(__dirname, '../.env');
-      let envContent = await fs_extra.readFile(envPath, 'utf8');
-      const updatedContent = envContent.replace(/ADMIN_PASSWORD=.*/, `ADMIN_PASSWORD=${newPassword}`);
-      await fs_extra.writeFile(envPath, updatedContent);
+      let envContent = '';
+      
+      if (await fs_extra.pathExists(envPath)) {
+        envContent = await fs_extra.readFile(envPath, 'utf8');
+      }
+
+      let updatedContent;
+      if (envContent.includes('ADMIN_PASSWORD=')) {
+        updatedContent = envContent.replace(/ADMIN_PASSWORD=.*/, `ADMIN_PASSWORD=${newPassword}`);
+      } else {
+        updatedContent = envContent + `\nADMIN_PASSWORD=${newPassword}`;
+      }
+
+      await fs_extra.writeFile(envPath, updatedContent.trim() + '\n');
       process.env.ADMIN_PASSWORD = newPassword;
       socket.emit('notification', { type: 'success', message: 'Password updated successfully' });
     } catch (e) {
+      console.error('Password update error:', e);
       socket.emit('notification', { type: 'error', message: 'Failed to save new password' });
     }
   });

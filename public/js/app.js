@@ -106,3 +106,37 @@ if (logoutBtn) {
         window.location.href = '/login.html';
     });
 }
+
+// Mobile Navigation Logic
+function initMobileNav() {
+    const aside = document.querySelector('aside');
+    const toggle = document.createElement('button');
+    toggle.className = 'menu-toggle';
+    toggle.innerHTML = '<span class="material-icons">menu</span>';
+    toggle.setAttribute('aria-label', 'Toggle Navigation');
+    document.body.appendChild(toggle);
+
+    const overlay = document.createElement('div');
+    overlay.className = 'overlay';
+    document.body.appendChild(overlay);
+
+    function toggleMenu() {
+        aside.classList.toggle('open');
+        overlay.classList.toggle('active');
+        toggle.innerHTML = aside.classList.contains('open') 
+            ? '<span class="material-icons">close</span>' 
+            : '<span class="material-icons">menu</span>';
+    }
+
+    toggle.addEventListener('click', toggleMenu);
+    overlay.addEventListener('click', toggleMenu);
+
+    // Close menu when clicking nav items on mobile
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.addEventListener('click', () => {
+            if (window.innerWidth <= 1024) toggleMenu();
+        });
+    });
+}
+
+document.addEventListener('DOMContentLoaded', initMobileNav);

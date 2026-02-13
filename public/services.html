@@ -51,19 +51,21 @@
             <input type="text" id="serviceSearch" placeholder="Filter services...">
         </div>
 
-        <table>
-            <thead>
-                <tr>
-                    <th>Service Name</th>
-                    <th>Status</th>
-                    <th>Description</th>
-                    <th style="text-align: right;">Actions</th>
-                </tr>
-            </thead>
-            <tbody id="serviceTable">
-                <!-- Data will be injected here -->
-            </tbody>
-        </table>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Service Name</th>
+                        <th>Status</th>
+                        <th>Description</th>
+                        <th style="text-align: right;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="serviceTable">
+                    <!-- Data will be injected here -->
+                </tbody>
+            </table>
+        </div>
     </main>
 
     <script src="/socket.io/socket.io.js"></script>

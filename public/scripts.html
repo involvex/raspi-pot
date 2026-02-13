@@ -92,8 +92,20 @@
                         <code>sudo journalctl -p err..alert</code>
                     </button>
                     <button class="quick-btn" onclick="setCmd('sudo systemctl restart raspipot')">
-                        <span>Restart Dashboard</span>
+                        <span>Restart Dashboard (Systemd)</span>
                         <code>sudo systemctl restart raspipot</code>
+                    </button>
+                    <button class="quick-btn" onclick="setCmd('npm run serve')">
+                        <span>Start Background (PM2)</span>
+                        <code>npm run serve</code>
+                    </button>
+                    <button class="quick-btn" onclick="setCmd('pm2 restart raspipot')">
+                        <span>Restart Background (PM2)</span>
+                        <code>pm2 restart raspipot</code>
+                    </button>
+                    <button class="quick-btn" onclick="setCmd('pm2 logs raspipot --lines 50 --no-gradient')">
+                        <span>View Logs (PM2)</span>
+                        <code>pm2 logs raspipot</code>
                     </button>
                 </div>
             </div>
