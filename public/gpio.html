@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPIO - RaspiPot</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        .gpio-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 1rem;
+        }
+        .pin-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 0.75rem;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            text-align: center;
+        }
+        .pin-card.out { border-color: var(--primary); }
+        .pin-card.high { background: rgba(255, 209, 102, 0.1); border-color: var(--warning); }
+        
+        .pin-num {
+            width: 30px;
+            height: 30px;
+            background: var(--border);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        .high .pin-num { background: var(--warning); color: var(--bg-dark); }
+        .out .pin-num { background: var(--primary); color: white; }
+
+        .btn-small {
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.4rem;
+            cursor: pointer;
+            font-size: 0.7rem;
+            font-weight: bold;
+        }
+        .btn-small:hover { border-color: var(--primary); }
+    </style>
+</head>
+<body>
+    <aside>
+        <div class="brand">
+            <span class="material-icons text-primary">memory</span>
+            <span class="name">RaspiPot</span>
+        </div>
+        <nav>
+            <a href="/" class="nav-item"><span class="material-icons">dashboard</span> Overview</a>
+            <a href="/processes.html" class="nav-item"><span class="material-icons">settings_applications</span> Processes</a>
+            <a href="/services.html" class="nav-item"><span class="material-icons">layers</span> Services</a>
+            <a href="/gpio.html" class="nav-item active"><span class="material-icons">settings_input_component</span> GPIO</a>
+            <a href="/network.html" class="nav-item"><span class="material-icons">router</span> Network</a>
+            <a href="/terminal.html" class="nav-item"><span class="material-icons">terminal</span> Terminal</a>
+            <a href="/files.html" class="nav-item"><span class="material-icons">folder</span> Explorer</a>
+            <a href="/settings.html" class="nav-item"><span class="material-icons">settings</span> Settings</a>
+        </nav>
+    </aside>
+
+    <main>
+        <header>
+            <h1>GPIO Manager</h1>
+            <div id="connectionStatus" style="font-size: 0.8rem; color: var(--text-muted);">
+                <span class="material-icons" style="font-size: 1rem;">sync</span> Connecting...
+            </div>
+        </header>
+
+        <div id="pinContainer" class="gpio-grid">
+            <!-- Pins will be injected here -->
+        </div>
+    </main>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="js/app.js"></script>
+    <script>
+        const container = document.getElementById('pinContainer');
+
+        socket.on('connect', () => {
+            socket.emit('gpio:get_pins');
+        });
+
+        socket.on('gpio:pins_data', (pins) => {
+            renderPins(pins);
+        });
+
+        function renderPins(pins) {
+            container.innerHTML = pins.map(pin => `
+                <div class="pin-card ${pin.mode === 'OUT' ? 'out' : ''} ${pin.state === 'HIGH' ? 'high' : ''}">
+                    <div class="pin-num">${pin.number}</div>
+                    <div style="font-size: 0.8rem; font-weight: bold;">${pin.mode}</div>
+                    <button class="btn-small" onclick="toggleMode(${pin.number})">Switch Mode</button>
+                    ${pin.mode === 'OUT' ? `
+                        <button class="btn-small" onclick="toggleState(${pin.number}, '${pin.state}')">
+                            ${pin.state}
+                        </button>
+                    ` : `<div style="font-size: 0.7rem; color: var(--text-muted);">${pin.state}</div>`}
+                </div>
+            `).join('');
+        }
+
+        function toggleMode(num) {
+            socket.emit('gpio:toggle', num);
+        }
+
+        function toggleState(num, current) {
+            socket.emit('gpio:set_state', { 
+                pinNumber: num, 
+                state: current === 'HIGH' ? 'LOW' : 'HIGH' 
+            });
+        }
+    </script>
+</body>
+</html>

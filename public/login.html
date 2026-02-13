@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - RaspiPot</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        body { justify-content: center; align-items: center; }
+        .login-card { width: 360px; text-align: center; }
+        input { 
+            width: 100%; 
+            padding: 0.75rem; 
+            margin: 1rem 0; 
+            background: var(--bg-dark); 
+            border: 1px solid var(--border); 
+            color: white; 
+            border-radius: 0.5rem; 
+            box-sizing: border-box;
+        }
+        button { 
+            width: 100%; 
+            padding: 0.75rem; 
+            background: var(--primary); 
+            color: white; 
+            border: none; 
+            border-radius: 0.5rem; 
+            cursor: pointer; 
+            font-weight: bold;
+        }
+        #error { color: var(--danger); font-size: 0.8rem; margin-top: 1rem; }
+    </style>
+</head>
+<body>
+    <div class="card login-card">
+        <div class="brand" style="justify-content: center; border: none;">
+            <span class="material-icons text-primary" style="font-size: 2.5rem;">memory</span>
+            <h1 style="font-size: 1.5rem;">RaspiPot</h1>
+        </div>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">System Dashboard Login</p>
+        
+        <form id="loginForm">
+            <input type="password" id="password" placeholder="System Password" required>
+            <button type="submit">Unlock System</button>
+        </form>
+        <div id="error"></div>
+    </div>
+
+    <script>
+        const form = document.getElementById('loginForm');
+        const errorDiv = document.getElementById('error');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            errorDiv.textContent = '';
+            const password = document.getElementById('password').value;
+
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    localStorage.setItem('token', data.token);
+                    window.location.href = '/';
+                } else {
+                    errorDiv.textContent = data.message || 'Login failed';
+                }
+            } catch (err) {
+                errorDiv.textContent = 'Server unreachable';
+            }
+        });
+    </script>
+</body>
+</html>

@@ -10,7 +10,6 @@ const jwt = require('jsonwebtoken');
 const si = require('systeminformation');
 const fs_extra = require('fs-extra');
 const multer = require('multer');
-const PluginManager = require('./plugin-manager.js');
 require('dotenv').config();
 
 const app = express();
@@ -31,170 +30,15 @@ const upload = multer({ storage });
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'raspberry';
 
-// Initialize Plugin Manager
-const pluginManager = new PluginManager();
-
-// Initialize plugins
-(async() => {
-  try {
-    console.log('Initializing plugins...');
-    await pluginManager.loadAllPlugins();
-
-    // Enable cloud storage plugin by default
-    console.log(
-      'Available plugins:',
-      pluginManager.getPluginList().map(p => p.name)
-    );
-    await pluginManager.enablePlugin('cloud-storage');
-    console.log('Cloud storage plugin enabled successfully');
-    console.log(
-      'Enabled plugins after enabling:',
-      pluginManager.getEnabledPlugins().map(p => p.name)
-    );
-  } catch (error) {
-    console.error('Failed to initialize plugins:', error);
-  }
-})();
-
 const io = new Server(server, {
   cors: {
-    origin: '*', // Allow all for dev, tighten for prod
+    origin: '*',
     methods: ['GET', 'POST']
   }
 });
 
 app.use(cors());
 app.use(express.json());
-
-// Plugin HTTP Request Middleware
-app.use('/api/cloud-storage', async(req, res, next) => {
-  try {
-    const enabledPlugins = pluginManager.getEnabledPlugins();
-    const cloudStoragePlugin = enabledPlugins.find(p => p.name === 'cloud-storage');
-
-    if (
-      cloudStoragePlugin &&
-      cloudStoragePlugin.instance &&
-      cloudStoragePlugin.instance.onHttpRequest
-    ) {
-      // Create a wrapped next that only gets called if the plugin explicitly wants it
-      let nextCalled = false;
-      const wrappedNext = () => {
-        nextCalled = true;
-        next();
-      };
-
-      await cloudStoragePlugin.instance.onHttpRequest(req, res, wrappedNext);
-
-      // If the plugin didn't send a response and didn't call next, we should probably call next
-      // But usually plugins will either res.send or call next()
-      if (!res.headersSent && !nextCalled) {
-        next();
-      }
-    } else {
-      next();
-    }
-  } catch (error) {
-    console.error('Plugin middleware error:', error);
-    if (!res.headersSent) {
-      next();
-    }
-  }
-});
-
-// Fallback cloud storage routes (direct implementation)
-app.get('/api/cloud-storage/gdrive/status', (req, res) => {
-  res.json({ success: true, authenticated: false, configured: false });
-});
-
-app.get('/api/cloud-storage/mega/status', (req, res) => {
-  res.json({ success: true, authenticated: false, configured: false });
-});
-
-app.post('/api/cloud-storage/mega/login', (req, res) => {
-  res.json({ success: false, error: 'Plugin not properly loaded' });
-});
-
-// Plugin Management Routes
-app.get('/api/plugins', async(req, res) => {
-  try {
-    const plugins = pluginManager.getPluginList();
-    res.json({ success: true, plugins });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-app.post('/api/plugins/install', async(req, res) => {
-  try {
-    const { pluginData } = req.body;
-    const success = await pluginManager.installPlugin(pluginData);
-    res.json({ success });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-app.post('/api/plugins/:name/enable', async(req, res) => {
-  try {
-    const { name } = req.params;
-    const success = await pluginManager.enablePlugin(name);
-    res.json({ success });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-app.post('/api/plugins/:name/disable', async(req, res) => {
-  try {
-    const { name } = req.params;
-    const success = await pluginManager.disablePlugin(name);
-    res.json({ success });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-app.get('/api/plugins/:name/settings', async(req, res) => {
-  try {
-    const { name } = req.params;
-    const settings = pluginManager.getPluginSettings(name);
-    res.json({ success: true, settings });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-app.post('/api/plugins/:name/settings', async(req, res) => {
-  try {
-    const { name } = req.params;
-    const settings = req.body;
-
-    // Find plugin and update its settings
-    const plugins = pluginManager.getEnabledPlugins();
-    const plugin = plugins.find(p => p.name === name);
-
-    if (plugin && plugin.instance && plugin.instance.updateSettings) {
-      await plugin.instance.updateSettings(settings);
-    } else {
-      await pluginManager.savePluginSettings(name, settings);
-    }
-
-    res.json({ success: true });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-app.delete('/api/plugins/:name', async(req, res) => {
-  try {
-    const { name } = req.params;
-    const success = await pluginManager.uninstallPlugin(name);
-    res.json({ success });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
 
 // Login Route
 app.post('/api/login', (req, res) => {
@@ -209,7 +53,6 @@ app.post('/api/login', (req, res) => {
 // Middleware to verify JWT for API routes
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
-  // Support both Bearer header and query param (needed for direct browser downloads)
   const token = (authHeader && authHeader.split(' ')[1]) || req.query.token;
 
   if (!token) return res.sendStatus(401);
@@ -232,15 +75,9 @@ app.get('/api/files/download', authenticateToken, (req, res) => {
   if (!filePath) return res.status(400).send('Path required');
 
   const absolutePath = path.resolve(filePath);
-  console.log('Downloading file:', absolutePath);
-
-  // Explicitly allow dotfiles (hidden files)
   res.download(absolutePath, path.basename(absolutePath), { dotfiles: 'allow' }, err => {
-    if (err) {
-      console.error('Download error:', err);
-      if (!res.headersSent) {
-        res.status(404).send('File not found');
-      }
+    if (err && !res.headersSent) {
+      res.status(404).send('File not found');
     }
   });
 });
@@ -250,12 +87,12 @@ app.post('/api/files/upload', authenticateToken, upload.single('file'), (req, re
   res.json({ success: true, message: 'File uploaded' });
 });
 
-// Serve static files from the SvelteKit build (production)
-app.use(express.static(path.join(__dirname, '../client/build')));
+// Serve static files from the lightweight public directory
+app.use(express.static(path.join(__dirname, '../public')));
 
 // Handle all other routes by serving index.html (SPA fallback)
 app.get(/.*/, (req, res) => {
-  res.sendFile(path.join(__dirname, '../client/build', 'index.html'));
+  res.sendFile(path.join(__dirname, '../public', 'index.html'));
 });
 
 // Terminal Socket Logic
@@ -276,16 +113,10 @@ io.use((socket, next) => {
 io.on('connection', socket => {
   console.log('Client connected:', socket.id);
 
-  // Execute plugin hooks for new connection
-  pluginManager.executeHook('onSocketConnection', socket);
-
-  // Allow multiple terminals? For now, one per socket.
   let ptyProcess = null;
 
   socket.on('terminal:start', ({ cols, rows } = {}) => {
-    if (ptyProcess) return; // Already started
-
-    // Use safe defaults if not provided
+    if (ptyProcess) return;
     const safeCols = cols || 80;
     const safeRows = rows || 24;
 
@@ -312,15 +143,11 @@ io.on('connection', socket => {
   });
 
   socket.on('terminal:input', data => {
-    if (ptyProcess) {
-      ptyProcess.write(data);
-    }
+    if (ptyProcess) ptyProcess.write(data);
   });
 
   socket.on('terminal:resize', ({ cols, rows }) => {
-    if (ptyProcess) {
-      ptyProcess.resize(cols, rows);
-    }
+    if (ptyProcess) ptyProcess.resize(cols, rows);
   });
 
   // --- Process Management ---
@@ -332,7 +159,6 @@ io.on('connection', socket => {
     const sendProcesses = async() => {
       try {
         const data = await si.processes();
-        // Sort by CPU and take top 15
         const topProcs = data.list
           .sort((a, b) => b.cpu - a.cpu)
           .slice(0, 15)
@@ -350,7 +176,7 @@ io.on('connection', socket => {
       processTimeout = setTimeout(sendProcesses, interval);
     };
 
-    sendProcesses(); // Start the loop
+    sendProcesses();
   });
 
   socket.on('processes:unwatch', () => {
@@ -363,39 +189,25 @@ io.on('connection', socket => {
   socket.on('process:kill', pid => {
     exec(`kill -9 ${pid}`, err => {
       if (err)
-        socket.emit('notification', {
-          type: 'error',
-          message: `Failed to kill process ${pid}`
-        });
+        socket.emit('notification', { type: 'error', message: `Failed to kill process ${pid}` });
       else
-        socket.emit('notification', {
-          type: 'success',
-          message: `Process ${pid} killed`
-        });
+        socket.emit('notification', { type: 'success', message: `Process ${pid} killed` });
     });
   });
 
   // --- System Power ---
   socket.on('system:power', action => {
-    if (action === 'reboot') {
-      exec('sudo reboot');
-    } else if (action === 'shutdown') {
-      exec('sudo shutdown -h now');
-    }
+    if (action === 'reboot') exec('sudo reboot');
+    else if (action === 'shutdown') exec('sudo shutdown -h now');
   });
 
   // --- Service Management ---
   socket.on('services:get', async() => {
     try {
-      // Fetch some common services or all. For simplicity on Linux:
       exec(
         'systemctl list-units --type=service --state=running,stopped --no-pager --no-legend',
         (err, stdout) => {
-          if (err)
-            return socket.emit('notification', {
-              type: 'error',
-              message: 'Failed to fetch services'
-            });
+          if (err) return socket.emit('notification', { type: 'error', message: 'Failed to fetch services' });
 
           const services = stdout
             .split('\n')
@@ -419,21 +231,12 @@ io.on('connection', socket => {
   });
 
   socket.on('services:control', ({ service, action }) => {
-    // action: start, stop, restart
     if (!['start', 'stop', 'restart'].includes(action)) return;
-
     exec(`sudo systemctl ${action} ${service}`, err => {
       if (err)
-        socket.emit('notification', {
-          type: 'error',
-          message: `Failed to ${action} ${service}`
-        });
+        socket.emit('notification', { type: 'error', message: `Failed to ${action} ${service}` });
       else {
-        socket.emit('notification', {
-          type: 'success',
-          message: `Service ${service} ${action}ed`
-        });
-        // Refresh list
+        socket.emit('notification', { type: 'success', message: `Service ${service} ${action}ed` });
         socket.emit('services:refresh');
       }
     });
@@ -441,18 +244,11 @@ io.on('connection', socket => {
 
   // --- Network Management ---
   socket.on('network:scan', () => {
-    // Trigger a rescan
     exec('sudo nmcli device wifi rescan', () => {
-      // Get current active WiFi SSID
       exec('nmcli -t -f active,ssid device wifi | grep \'^yes\' | cut -d: -f2', (err, activeSsid) => {
         const currentSsid = activeSsid ? activeSsid.trim() : null;
-
         exec('nmcli -t -f SSID,SIGNAL,BARS,SECURITY device wifi list', (err, stdout) => {
-          if (err)
-            return socket.emit('notification', {
-              type: 'error',
-              message: 'WiFi scan failed'
-            });
+          if (err) return socket.emit('notification', { type: 'error', message: 'WiFi scan failed' });
           const networks = stdout
             .split('\n')
             .filter(line => line.trim() && !line.startsWith('--'))
@@ -467,14 +263,10 @@ io.on('connection', socket => {
               };
             });
 
-          // Filter unique SSIDs, preferring connected ones
           const uniqueSsidMap = new Map();
           networks.forEach(n => {
-            if (!uniqueSsidMap.has(n.ssid) || n.connected) {
-              uniqueSsidMap.set(n.ssid, n);
-            }
+            if (!uniqueSsidMap.has(n.ssid) || n.connected) uniqueSsidMap.set(n.ssid, n);
           });
-
           socket.emit('network:scan_results', Array.from(uniqueSsidMap.values()));
         });
       });
@@ -482,13 +274,8 @@ io.on('connection', socket => {
   });
 
   socket.on('network:get_saved', () => {
-    // Use -f TYPE to ensure we only get '802-11-wireless'
     exec('nmcli -t -f NAME,TYPE,DEVICE connection show', (err, stdout) => {
-      if (err)
-        return socket.emit('notification', {
-          type: 'error',
-          message: 'Failed to get saved networks'
-        });
+      if (err) return socket.emit('notification', { type: 'error', message: 'Failed to get saved networks' });
       const connections = stdout
         .split('\n')
         .filter(line => line.trim())
@@ -506,69 +293,33 @@ io.on('connection', socket => {
       ? `sudo nmcli device wifi connect "${ssid}" password "${password}"`
       : `sudo nmcli device wifi connect "${ssid}"`;
     exec(cmd, err => {
-      if (err)
-        socket.emit('notification', {
-          type: 'error',
-          message: `Failed to connect to ${ssid}`
-        });
-      else
-        socket.emit('notification', {
-          type: 'success',
-          message: `Connected to ${ssid}`
-        });
+      if (err) socket.emit('notification', { type: 'error', message: `Failed to connect to ${ssid}` });
+      else socket.emit('notification', { type: 'success', message: `Connected to ${ssid}` });
       socket.emit('network:refresh');
     });
   });
 
   socket.on('network:delete', name => {
     exec(`sudo nmcli connection delete "${name}"`, err => {
-      if (err)
-        socket.emit('notification', {
-          type: 'error',
-          message: `Failed to delete ${name}`
-        });
-      else
-        socket.emit('notification', {
-          type: 'success',
-          message: `Deleted ${name}`
-        });
+      if (err) socket.emit('notification', { type: 'error', message: `Failed to delete ${name}` });
+      else socket.emit('notification', { type: 'success', message: `Deleted ${name}` });
       socket.emit('network:refresh');
     });
   });
 
   socket.on('settings:update_password', async({ currentPassword, newPassword }) => {
-    // Note: In this simple implementation, we check against the live variable.
-    // A better way would be using a DB, but for RaspiPot we'll update the .env file.
     if (currentPassword !== process.env.ADMIN_PASSWORD) {
-      return socket.emit('notification', {
-        type: 'error',
-        message: 'Current password incorrect'
-      });
+      return socket.emit('notification', { type: 'error', message: 'Current password incorrect' });
     }
-
     try {
       const envPath = path.join(__dirname, '../.env');
       let envContent = await fs_extra.readFile(envPath, 'utf8');
-
-      // Replace ADMIN_PASSWORD line
-      const updatedContent = envContent.replace(
-        /ADMIN_PASSWORD=.*/,
-        `ADMIN_PASSWORD=${newPassword}`
-      );
-
+      const updatedContent = envContent.replace(/ADMIN_PASSWORD=.*/, `ADMIN_PASSWORD=${newPassword}`);
       await fs_extra.writeFile(envPath, updatedContent);
-      process.env.ADMIN_PASSWORD = newPassword; // Update in memory
-
-      socket.emit('notification', {
-        type: 'success',
-        message: 'Password updated successfully'
-      });
+      process.env.ADMIN_PASSWORD = newPassword;
+      socket.emit('notification', { type: 'success', message: 'Password updated successfully' });
     } catch (e) {
-      console.error('Failed to update .env:', e);
-      socket.emit('notification', {
-        type: 'error',
-        message: 'Failed to save new password'
-      });
+      socket.emit('notification', { type: 'error', message: 'Failed to save new password' });
     }
   });
 
@@ -585,13 +336,9 @@ io.on('connection', socket => {
           size: item.isDirectory() ? 0 : fs_extra.statSync(path.join(target, item.name)).size
         }))
         .sort((a, b) => b.isDirectory - a.isDirectory || a.name.localeCompare(b.name));
-
       socket.emit('files:data', { path: target, items: list });
     } catch (e) {
-      socket.emit('notification', {
-        type: 'error',
-        message: `Failed to list directory: ${e.message}`
-      });
+      socket.emit('notification', { type: 'error', message: `Failed to list directory: ${e.message}` });
     }
   });
 
@@ -600,25 +347,16 @@ io.on('connection', socket => {
       const content = await fs_extra.readFile(filePath, 'utf8');
       socket.emit('files:content', { path: filePath, content });
     } catch (e) {
-      socket.emit('notification', {
-        type: 'error',
-        message: `Failed to read file: ${e.message}`
-      });
+      socket.emit('notification', { type: 'error', message: `Failed to read file: ${e.message}` });
     }
   });
 
   socket.on('files:write', async({ path, content }) => {
     try {
       await fs_extra.writeFile(path, content, 'utf8');
-      socket.emit('notification', {
-        type: 'success',
-        message: 'File saved successfully'
-      });
+      socket.emit('notification', { type: 'success', message: 'File saved successfully' });
     } catch (e) {
-      socket.emit('notification', {
-        type: 'error',
-        message: `Failed to save file: ${e.message}`
-      });
+      socket.emit('notification', { type: 'error', message: `Failed to save file: ${e.message}` });
     }
   });
 
@@ -628,27 +366,16 @@ io.on('connection', socket => {
       socket.emit('notification', { type: 'success', message: 'Item deleted' });
       socket.emit('files:refresh');
     } catch (e) {
-      socket.emit('notification', {
-        type: 'error',
-        message: `Delete failed: ${e.message}`
-      });
+      socket.emit('notification', { type: 'error', message: `Delete failed: ${e.message}` });
     }
   });
 
   // --- Script Runner ---
   socket.on('scripts:run', scriptPath => {
     const child = exec(scriptPath);
-
     socket.emit('scripts:output', `\n> Running: ${scriptPath}\n`);
-
-    child.stdout.on('data', data => {
-      socket.emit('scripts:output', data);
-    });
-
-    child.stderr.on('data', data => {
-      socket.emit('scripts:output', `[ERROR] ${data}`);
-    });
-
+    child.stdout.on('data', data => socket.emit('scripts:output', data));
+    child.stderr.on('data', data => socket.emit('scripts:output', `[ERROR] ${data}`));
     child.on('close', code => {
       socket.emit('scripts:output', `\n> Process finished with code ${code}\n`);
       socket.emit('scripts:finished');
@@ -662,37 +389,16 @@ io.on('connection', socket => {
     state: 'LOW'
   }));
 
-  // Attempt to sync with real hardware if 'gpio' command exists
-  function syncHardware() {
-    exec('gpio readall', (err, stdout) => {
-      if (!err && stdout) {
-        // Parsing wiringPi readall output is complex, but we can at least detect it works
-        console.log('Hardware GPIO detected');
-      }
-    });
-  }
-  syncHardware();
-
-  socket.on('gpio:get_pins', () => {
-    socket.emit('gpio:pins_data', pins);
-  });
+  socket.on('gpio:get_pins', () => socket.emit('gpio:pins_data', pins));
 
   socket.on('gpio:toggle', pinNumber => {
     const pin = pins.find(p => p.number === pinNumber);
     if (pin) {
       pin.mode = pin.mode === 'IN' ? 'OUT' : 'IN';
-
-      // Real hardware call
       const cmd = `gpio mode ${pinNumber} ${pin.mode === 'OUT' ? 'out' : 'in'}`;
-      exec(cmd, err => {
-        if (!err) console.log(`GPIO: Pin ${pinNumber} set to ${pin.mode}`);
-      });
-
+      exec(cmd);
       socket.emit('gpio:pins_data', pins);
-      socket.emit('notification', {
-        type: 'success',
-        message: `Pin ${pinNumber} set to ${pin.mode}`
-      });
+      socket.emit('notification', { type: 'success', message: `Pin ${pinNumber} set to ${pin.mode}` });
     }
   });
 
@@ -700,23 +406,13 @@ io.on('connection', socket => {
     const pin = pins.find(p => p.number === pinNumber);
     if (pin && pin.mode === 'OUT') {
       pin.state = state;
-
-      // Real hardware call
       const cmd = `gpio write ${pinNumber} ${state === 'HIGH' ? 1 : 0}`;
-      exec(cmd, err => {
-        if (!err) console.log(`GPIO: Pin ${pinNumber} written ${state}`);
-      });
-
+      exec(cmd);
       socket.emit('gpio:pins_data', pins);
     }
   });
 
   socket.on('disconnect', () => {
-    console.log('Client disconnected:', socket.id);
-
-    // Execute plugin hooks for disconnection
-    pluginManager.executeHook('onSocketDisconnection', socket);
-
     if (processTimeout) clearTimeout(processTimeout);
     if (ptyProcess) {
       ptyProcess.kill();
@@ -729,37 +425,25 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 
-  let cachedStats = {
-    disk_used: '0.0 GB',
-    disk_total: '0.0 GB',
-    ip: 'Disconnected',
-    interfaces: ''
-  };
+  let cachedStats = { disk_used: '0.0 GB', disk_total: '0.0 GB', ip: 'Disconnected', interfaces: '' };
+  let fastInterval = 5000;
+  let slowInterval = 60000;
 
-  // Adaptive telemetry intervals based on system load for Pi 2B optimization
-  let fastInterval = 5000; // Default 5s for Pi 2B (was 2s)
-  let slowInterval = 60000; // Default 60s for disk/network (was 30s)
-
-  // Slow Telemetry (Disk and Network info - adaptive rate)
   async function updateSlowStats() {
     try {
       const [fs, net] = await Promise.all([si.fsSize(), si.networkInterfaces()]);
       const rootFs = fs.find(f => f.mount === '/') || fs[0];
       const activeNet = net.filter(n => n.operstate === 'up' && !n.internal);
-
       cachedStats = {
         disk_used: (rootFs.used / 1024 ** 3).toFixed(1) + ' GB',
         disk_total: (rootFs.size / 1024 ** 3).toFixed(1) + ' GB',
         ips: activeNet.map(n => ({ iface: n.iface, ip: n.ip4 })),
         interfaces: activeNet.map(n => n.iface).join(', ')
       };
-    } catch (e) {
-      console.error('Slow telemetry error:', e);
-    }
+    } catch (e) {}
     setTimeout(updateSlowStats, slowInterval);
   }
 
-  // Fast Telemetry (CPU, Mem, Temp - adaptive rate with caching)
   let memCache = null;
   let tempCache = null;
   let cacheExpiry = 0;
@@ -767,17 +451,13 @@ server.listen(PORT, () => {
   async function updateFastStats() {
     try {
       const now = Date.now();
-
-      // Cache expensive memory and temp calls for Pi 2B
       if (now > cacheExpiry) {
         const [mem, temp] = await Promise.all([si.mem(), si.cpuTemperature()]);
         memCache = mem;
         tempCache = temp;
-        cacheExpiry = now + 10000; // Cache for 10s
+        cacheExpiry = now + 10000;
       }
-
-      const cpu = await si.currentLoad(); // CPU changes frequently, don't cache
-
+      const cpu = await si.currentLoad();
       const stats = {
         cpu: Math.round(cpu.currentLoad),
         mem: memCache ? Math.round((memCache.active / memCache.total) * 100) : 0,
@@ -787,31 +467,9 @@ server.listen(PORT, () => {
         uptime: os.uptime(),
         ...cachedStats
       };
-
-      // Execute plugin hooks for telemetry data
-      const pluginResults = await pluginManager.executeHook('onTelemetryData', stats);
-
-      // Apply plugin modifications if any
-      let finalStats = stats;
-      for (const result of pluginResults) {
-        if (result.result && typeof result.result === 'object') {
-          finalStats = { ...finalStats, ...result.result };
-        }
-      }
-
-      io.emit('telemetry:stats', finalStats);
-
-      // Adaptive interval based on CPU load for Pi 2B
-      if (stats.cpu > 80) {
-        fastInterval = 10000; // Slower when under high load
-      } else if (stats.cpu < 20) {
-        fastInterval = 3000; // Faster when idle
-      } else {
-        fastInterval = 5000; // Normal rate
-      }
-    } catch (e) {
-      console.error('Fast telemetry error:', e);
-    }
+      io.emit('telemetry:stats', stats);
+      fastInterval = stats.cpu > 80 ? 10000 : (stats.cpu < 20 ? 3000 : 5000);
+    } catch (e) {}
     setTimeout(updateFastStats, fastInterval);
   }
 

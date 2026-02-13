@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Explorer - RaspiPot</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        .explorer-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 1rem; overflow: hidden; display: flex; flex-direction: column; flex: 1; }
+        .breadcrumb { padding: 1rem; background: var(--bg-header); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 0.5rem; font-family: monospace; font-size: 0.9rem; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid var(--border); }
+        th { background: rgba(0,0,0,0.1); color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; }
+        tr:hover { background: rgba(255,255,255,0.02); cursor: pointer; }
+        .file-icon { color: var(--text-muted); margin-right: 0.5rem; }
+        .dir-icon { color: var(--primary); }
+        .btn-icon { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 0.25rem; border-radius: 0.25rem; }
+        .btn-icon:hover { background: var(--border); color: white; }
+        main { display: flex; flex-direction: column; }
+        
+        #editor { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-dark); z-index: 200; display: none; flex-direction: column; }
+        .editor-header { padding: 1rem; background: var(--bg-header); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        textarea { flex: 1; background: transparent; color: white; padding: 2rem; border: none; outline: none; font-family: 'JetBrains Mono', monospace; font-size: 1rem; resize: none; }
+    </style>
+</head>
+<body>
+    <aside>
+        <div class="brand">
+            <span class="material-icons text-primary">memory</span>
+            <span class="name">RaspiPot</span>
+        </div>
+        <nav>
+            <a href="/" class="nav-item"><span class="material-icons">dashboard</span> Overview</a>
+            <a href="/processes.html" class="nav-item"><span class="material-icons">settings_applications</span> Processes</a>
+            <a href="/services.html" class="nav-item"><span class="material-icons">layers</span> Services</a>
+            <a href="/gpio.html" class="nav-item"><span class="material-icons">settings_input_component</span> GPIO</a>
+            <a href="/network.html" class="nav-item"><span class="material-icons">router</span> Network</a>
+            <a href="/terminal.html" class="nav-item"><span class="material-icons">terminal</span> Terminal</a>
+            <a href="/files.html" class="nav-item active"><span class="material-icons">folder</span> Explorer</a>
+            <a href="/settings.html" class="nav-item"><span class="material-icons">settings</span> Settings</a>
+        </nav>
+    </aside>
+
+    <main>
+        <header>
+            <h1>File Explorer</h1>
+            <button class="btn-icon" onclick="navigate('/')" title="Root"><span class="material-icons">home</span></button>
+        </header>
+
+        <div class="explorer-card">
+            <div class="breadcrumb" id="pathDisplay">/</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Size</th>
+                        <th style="text-align: right;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="fileList">
+                    <!-- Files here -->
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <div id="editor">
+        <div class="editor-header">
+            <span id="editorTitle" style="font-weight: bold;">File Name</span>
+            <div style="display: flex; gap: 1rem;">
+                <button class="btn-icon" style="background: var(--border);" onclick="closeEditor()">Cancel</button>
+                <button class="btn-icon" style="background: var(--primary); color: white; padding: 0.5rem 1rem;" onclick="saveFile()">Save Changes</button>
+            </div>
+        </div>
+        <textarea id="fileContent" spellcheck="false"></textarea>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="js/app.js"></script>
+    <script>
+        const list = document.getElementById('fileList');
+        const pathDisplay = document.getElementById('pathDisplay');
+        const editor = document.getElementById('editor');
+        const textArea = document.getElementById('fileContent');
+        let currentPath = '';
+        let currentFile = '';
+
+        socket.on('connect', () => {
+            navigate('');
+        });
+
+        socket.on('files:data', (data) => {
+            currentPath = data.path;
+            pathDisplay.textContent = currentPath;
+            list.innerHTML = data.items.map(item => `
+                <tr onclick="handleItemClick(${JSON.stringify(item).replace(/"/g, '&quot;')})">
+                    <td>
+                        <span class="material-icons file-icon ${item.isDirectory ? 'dir-icon' : ''}">
+                            ${item.isDirectory ? 'folder' : 'insert_drive_file'}
+                        </span>
+                        ${item.name}
+                    </td>
+                    <td style="font-size: 0.8rem; color: var(--text-muted);">${item.isDirectory ? '--' : formatSize(item.size)}</td>
+                    <td style="text-align: right;" onclick="event.stopPropagation()">
+                        <button class="btn-icon" onclick="deleteItem('${item.path}')"><span class="material-icons">delete</span></button>
+                    </td>
+                </tr>
+            `).join('');
+        });
+
+        socket.on('files:content', (data) => {
+            currentFile = data.path;
+            document.getElementById('editorTitle').textContent = data.path.split('/').pop();
+            textArea.value = data.content;
+            editor.style.display = 'flex';
+        });
+
+        socket.on('files:refresh', () => navigate(currentPath));
+
+        function navigate(path) { socket.emit('files:list', path); }
+
+        function handleItemClick(item) {
+            if (item.isDirectory) navigate(item.path);
+            else socket.emit('files:read', item.path);
+        }
+
+        function deleteItem(path) {
+            if (confirm(`Delete ${path.split('/').pop()}?`)) socket.emit('files:delete', path);
+        }
+
+        function closeEditor() { editor.style.display = 'none'; }
+
+        function saveFile() {
+            socket.emit('files:write', { path: currentFile, content: textArea.value });
+            closeEditor();
+        }
+
+        function formatSize(bytes) {
+            if (!bytes) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+        }
+    </script>
+</body>
+</html>

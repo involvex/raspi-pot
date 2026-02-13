@@ -3,17 +3,10 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
-  "workspaces": [
-    "client"
-  ],
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "concurrently \"npm run server:dev\" \"npm run client:dev\"",
-    "server:dev": "node server/index.js",
-    "client:dev": "cd client && npm run dev",
-    "build": "cd client && npm run build",
-    "prebuild": "npm run format && npm run lint:fix",
-    "start": "cd client && npm run build && cd .. && node server/index.js",
+    "dev": "node server/index.js",
+    "start": "node server/index.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "npx prettier . --write",

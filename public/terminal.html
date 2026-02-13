@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terminal - RaspiPot</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <!-- Local Xterm assets for reliable offline performance on Pi 2B -->
+    <link rel="stylesheet" href="vendor/xterm/xterm.css">
+    <script src="vendor/xterm/xterm.js"></script>
+    <script src="vendor/xterm/xterm-addon-fit.js"></script>
+    <style>
+        .terminal-container { flex: 1; background: #0a0f1a; border: 1px solid var(--border); border-radius: 1rem; overflow: hidden; padding: 1rem; min-height: 400px; }
+        #terminal { width: 100%; height: 100%; }
+        main { display: flex; flex-direction: column; height: 100vh; box-sizing: border-box; }
+    </style>
+</head>
+<body>
+    <aside>
+        <div class="brand">
+            <span class="material-icons text-primary">memory</span>
+            <span class="name">RaspiPot</span>
+        </div>
+        <nav>
+            <a href="/" class="nav-item"><span class="material-icons">dashboard</span> Overview</a>
+            <a href="/processes.html" class="nav-item"><span class="material-icons">settings_applications</span> Processes</a>
+            <a href="/services.html" class="nav-item"><span class="material-icons">layers</span> Services</a>
+            <a href="/gpio.html" class="nav-item"><span class="material-icons">settings_input_component</span> GPIO</a>
+            <a href="/network.html" class="nav-item"><span class="material-icons">router</span> Network</a>
+            <a href="/terminal.html" class="nav-item active"><span class="material-icons">terminal</span> Terminal</a>
+            <a href="/files.html" class="nav-item"><span class="material-icons">folder</span> Explorer</a>
+            <a href="/scripts.html" class="nav-item"><span class="material-icons">play_circle</span> Scripts</a>
+            <a href="/settings.html" class="nav-item"><span class="material-icons">settings</span> Settings</a>
+        </nav>
+    </aside>
+
+    <main>
+        <header>
+            <h1>System Terminal</h1>
+            <div style="font-size: 0.8rem; color: var(--text-muted);">
+                <span class="material-icons" style="font-size: 1rem; color: var(--success);">lock</span> SSH (root@raspberrypi)
+            </div>
+        </header>
+
+        <div class="terminal-container">
+            <div id="terminal"></div>
+        </div>
+    </main>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="js/app.js"></script>
+    <script>
+        // Terminal initialization with local vendor scripts
+        const term = new Terminal({
+            cursorBlink: true,
+            theme: { background: '#0a0f1a', foreground: '#cbd5e1', cursor: '#2b6cee' },
+            fontFamily: '"JetBrains Mono", monospace',
+            fontSize: 14
+        });
+        
+        const fitAddon = new FitAddon.FitAddon();
+        term.loadAddon(fitAddon);
+        term.open(document.getElementById('terminal'));
+        
+        // Timeout to ensure DOM is ready for fit
+        setTimeout(() => {
+            fitAddon.fit();
+            if (socket.connected) {
+                socket.emit('terminal:start', { cols: term.cols, rows: term.rows });
+            }
+        }, 100);
+
+        socket.on('connect', () => {
+            term.write('\r\n\x1b[34m*** Connected to backend ***\x1b[0m\r\n');
+            socket.emit('terminal:start', { cols: term.cols, rows: term.rows });
+        });
+
+        socket.on('terminal:output', (data) => {
+            term.write(data);
+        });
+
+        term.onData(data => {
+            socket.emit('terminal:input', data);
+        });
+
+        window.addEventListener('resize', () => {
+            fitAddon.fit();
+            socket.emit('terminal:resize', { cols: term.cols, rows: term.rows });
+        });
+
+        term.focus();
+    </script>
+</body>
+</html>
