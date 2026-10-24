@@ -1,0 +1,15 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Third-party bundles that ship as-is
+public/vendor/
+
+# Archived / generated code
+archive/
+logs/
+coverage/
+*.min.js
+
+# Local caches
+.eslintcache

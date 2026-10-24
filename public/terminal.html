@@ -1,95 +1,247 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Terminal - RaspiPot</title>
-    <link rel="stylesheet" href="css/style.css">
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css" />
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
     <!-- Local Xterm assets for reliable offline performance on Pi 2B -->
-    <link rel="stylesheet" href="vendor/xterm/xterm.css">
+    <link rel="stylesheet" href="vendor/xterm/xterm.css" />
     <script src="vendor/xterm/xterm.js"></script>
     <script src="vendor/xterm/xterm-addon-fit.js"></script>
     <style>
-        .terminal-container { flex: 1; background: #0a0f1a; border: 1px solid var(--border); border-radius: 1rem; overflow: hidden; padding: 1rem; min-height: 400px; }
-        #terminal { width: 100%; height: 100%; }
-        main { display: flex; flex-direction: column; height: 100vh; box-sizing: border-box; }
+      .terminal-container {
+        flex: 1;
+        background: #0a0f1a;
+        border: 1px solid var(--border);
+        border-radius: 1rem;
+        overflow: hidden;
+        padding: 1rem;
+        min-height: 320px;
+      }
+      #terminal {
+        width: 100%;
+        height: 100%;
+      }
+      main {
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+        box-sizing: border-box;
+      }
+      .term-toolbar {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        align-items: center;
+        margin-bottom: 1rem;
+      }
+      .term-toolbar .btn {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        color: var(--text-main);
+        border-radius: 0.5rem;
+        padding: 0.45rem 0.8rem;
+        cursor: pointer;
+        font-size: 0.85rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+      }
+      .term-toolbar .btn:hover {
+        border-color: var(--primary);
+      }
+      .term-toolbar .btn.primary {
+        background: var(--primary);
+        border-color: var(--primary);
+        color: #fff;
+      }
+      .term-toolbar select {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        color: var(--text-main);
+        border-radius: 0.5rem;
+        padding: 0.45rem 0.6rem;
+      }
+      .term-status {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        margin-left: auto;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <aside>
-        <div class="brand">
-            <span class="material-icons text-primary">memory</span>
-            <span class="name">RaspiPot</span>
-        </div>
-        <nav>
-            <a href="/" class="nav-item"><span class="material-icons">dashboard</span> Overview</a>
-            <a href="/processes.html" class="nav-item"><span class="material-icons">settings_applications</span> Processes</a>
-            <a href="/services.html" class="nav-item"><span class="material-icons">layers</span> Services</a>
-            <a href="/gpio.html" class="nav-item"><span class="material-icons">settings_input_component</span> GPIO</a>
-            <a href="/network.html" class="nav-item"><span class="material-icons">router</span> Network</a>
-            <a href="/terminal.html" class="nav-item active"><span class="material-icons">terminal</span> Terminal</a>
-            <a href="/files.html" class="nav-item"><span class="material-icons">folder</span> Explorer</a>
-            <a href="/scripts.html" class="nav-item"><span class="material-icons">play_circle</span> Scripts</a>
-            <a href="/settings.html" class="nav-item"><span class="material-icons">settings</span> Settings</a>
-        </nav>
+      <div class="brand">
+        <span class="material-icons text-primary">memory</span>
+        <span class="name">RaspiPot</span>
+      </div>
+      <nav>
+        <a href="/" class="nav-item"><span class="material-icons">dashboard</span> Overview</a>
+        <a href="/processes.html" class="nav-item"
+          ><span class="material-icons">settings_applications</span> Processes</a
+        >
+        <a href="/services.html" class="nav-item"
+          ><span class="material-icons">layers</span> Services</a
+        >
+        <a href="/pihole.html" class="nav-item"
+          ><span class="material-icons">security</span> Pi-hole</a
+        >
+        <a href="/gpio.html" class="nav-item"
+          ><span class="material-icons">settings_input_component</span> GPIO</a
+        >
+        <a href="/network.html" class="nav-item"
+          ><span class="material-icons">router</span> Network</a
+        >
+        <a href="/terminal.html" class="nav-item active"
+          ><span class="material-icons">terminal</span> Terminal</a
+        >
+        <a href="/files.html" class="nav-item"
+          ><span class="material-icons">folder</span> Explorer</a
+        >
+        <a href="/scripts.html" class="nav-item"
+          ><span class="material-icons">play_circle</span> Scripts</a
+        >
+        <a href="/settings.html" class="nav-item"
+          ><span class="material-icons">settings</span> Settings</a
+        >
+      </nav>
     </aside>
 
     <main>
-        <header>
-            <h1>System Terminal</h1>
-            <div style="font-size: 0.8rem; color: var(--text-muted);">
-                <span class="material-icons" style="font-size: 1rem; color: var(--success);">lock</span> SSH (root@raspberrypi)
-            </div>
-        </header>
-
-        <div class="terminal-container">
-            <div id="terminal"></div>
+      <header>
+        <h1>System Terminal</h1>
+        <div id="connectionStatus" style="font-size: 0.8rem; color: var(--text-muted)">
+          <span class="material-icons" style="font-size: 1rem">sync</span> Connecting...
         </div>
+      </header>
+
+      <div class="term-toolbar">
+        <select id="shellMode" title="Shell mode">
+          <option value="user">User shell (login)</option>
+          <option value="root">Root shell (sudo -i)</option>
+        </select>
+        <button class="btn primary" id="restartBtn">
+          <span class="material-icons" style="font-size: 1rem">restart_alt</span> Restart
+        </button>
+        <button class="btn" id="clearBtn">
+          <span class="material-icons" style="font-size: 1rem">cleaning_services</span> Clear
+        </button>
+        <span class="term-status" id="termStatus">idle</span>
+      </div>
+
+      <div class="term-toolbar" id="quickCommands">
+        <span class="muted" style="font-size: 0.8rem; margin-right: 0.25rem">Quick:</span>
+        <button class="btn" data-cmd="pihole status">pihole status</button>
+        <button class="btn" data-cmd="pihole -v">pihole -v</button>
+        <button class="btn" data-cmd="sudo pihole -g">update gravity</button>
+        <button class="btn" data-cmd="pihole-FTL --config webserver.port">webserver.port</button>
+        <button class="btn" data-cmd="tail -n 100 /var/log/pihole/pihole.log">
+          tail pihole.log
+        </button>
+        <button class="btn" data-cmd="sudo systemctl status pihole-FTL">pihole-FTL status</button>
+        <button class="btn" data-cmd="df -h">df -h</button>
+        <button class="btn" data-cmd="top">top</button>
+      </div>
+
+      <div class="terminal-container">
+        <div id="terminal"></div>
+      </div>
     </main>
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="js/app.js"></script>
     <script>
-        // Terminal initialization with local vendor scripts
-        const term = new Terminal({
-            cursorBlink: true,
-            theme: { background: '#0a0f1a', foreground: '#cbd5e1', cursor: '#2b6cee' },
-            fontFamily: '"JetBrains Mono", monospace',
-            fontSize: 14
-        });
-        
-        const fitAddon = new FitAddon.FitAddon();
-        term.loadAddon(fitAddon);
-        term.open(document.getElementById('terminal'));
-        
-        // Timeout to ensure DOM is ready for fit
-        setTimeout(() => {
-            fitAddon.fit();
-            if (socket.connected) {
-                socket.emit('terminal:start', { cols: term.cols, rows: term.rows });
-            }
-        }, 100);
+      const term = new Terminal({
+        cursorBlink: true,
+        theme: { background: '#0a0f1a', foreground: '#cbd5e1', cursor: '#2b6cee' },
+        fontFamily: '"JetBrains Mono", monospace',
+        fontSize: 14,
+        scrollback: 5000,
+      });
 
-        socket.on('connect', () => {
-            term.write('\r\n\x1b[34m*** Connected to backend ***\x1b[0m\r\n');
-            socket.emit('terminal:start', { cols: term.cols, rows: term.rows });
-        });
+      const fitAddon = new FitAddon.FitAddon();
+      term.loadAddon(fitAddon);
+      term.open(document.getElementById('terminal'));
 
-        socket.on('terminal:output', (data) => {
-            term.write(data);
-        });
+      const shellMode = document.getElementById('shellMode');
+      const termStatus = document.getElementById('termStatus');
 
-        term.onData(data => {
-            socket.emit('terminal:input', data);
-        });
+      function fit() {
+        try {
+          fitAddon.fit();
+        } catch (e) {
+          /* not visible yet */
+        }
+      }
 
-        window.addEventListener('resize', () => {
-            fitAddon.fit();
-            socket.emit('terminal:resize', { cols: term.cols, rows: term.rows });
-        });
+      function startSession(mode) {
+        termStatus.textContent = 'starting ' + mode + ' shell...';
+        socket.emit('terminal:restart', { cols: term.cols, rows: term.rows, mode: mode });
+      }
 
+      setTimeout(() => {
+        fit();
+        if (socket.connected) startSession(shellMode.value);
+      }, 100);
+
+      socket.on('connect', () => {
+        const status = document.getElementById('connectionStatus');
+        if (status)
+          status.innerHTML =
+            '<span class="material-icons text-success" style="font-size: 1rem;">check_circle</span> Live';
+        term.write('\r\n\x1b[34m*** Connected to backend ***\x1b[0m\r\n');
+        startSession(shellMode.value);
+      });
+
+      socket.on('disconnect', () => {
+        const status = document.getElementById('connectionStatus');
+        if (status)
+          status.innerHTML =
+            '<span class="material-icons text-danger" style="font-size: 1rem;">error</span> Offline';
+        termStatus.textContent = 'disconnected';
+      });
+
+      socket.on('terminal:output', data => {
+        term.write(data);
+        termStatus.textContent = 'running';
+      });
+
+      socket.on('terminal:exit', info => {
+        termStatus.textContent =
+          'exited' + (info && info.exitCode !== undefined ? ' (' + info.exitCode + ')' : '');
+        term.write('\r\n\x1b[33m*** Shell exited. Press Restart to reconnect. ***\x1b[0m\r\n');
+      });
+
+      term.onData(data => {
+        socket.emit('terminal:input', data);
+      });
+
+      shellMode.addEventListener('change', () => {
+        if (confirm('Start a new ' + shellMode.value + ' shell? The current session will end.')) {
+          startSession(shellMode.value);
+        }
+      });
+
+      document
+        .getElementById('restartBtn')
+        .addEventListener('click', () => startSession(shellMode.value));
+      document.getElementById('clearBtn').addEventListener('click', () => term.clear());
+
+      document.getElementById('quickCommands').addEventListener('click', event => {
+        const button = event.target.closest('button[data-cmd]');
+        if (!button) return;
+        socket.emit('terminal:input', button.dataset.cmd + '\r');
         term.focus();
+      });
+
+      window.addEventListener('resize', () => {
+        fit();
+        socket.emit('terminal:resize', { cols: term.cols, rows: term.rows });
+      });
+
+      term.focus();
     </script>
-</body>
+  </body>
 </html>

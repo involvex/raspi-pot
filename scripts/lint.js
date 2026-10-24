@@ -12,7 +12,7 @@ async function runESLint() {
     const eslint = new ESLint({
       overrideConfigFile: 'eslint.config.js',
       cache: true,
-      cacheLocation: '.eslintcache'
+      cacheLocation: '.eslintcache',
     });
 
     const results = await eslint.lintFiles(['.']);

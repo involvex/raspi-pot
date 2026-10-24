@@ -13,7 +13,7 @@ class CloudStoragePlugin extends BasePlugin {
     // Start with manifest defaults, merge with persisted settings
     this.settings = {
       ...(manifest.settings || {}),
-      ...persistedSettings,
+      ...persistedSettings
     };
 
     this.gdriveTokens = null;
@@ -32,11 +32,11 @@ class CloudStoragePlugin extends BasePlugin {
         filename: (req, file, cb) => {
           const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
           cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-        },
+        }
       }),
       limits: {
-        fileSize: this.parseSize(this.settings.maxFileSize || '100MB'),
-      },
+        fileSize: this.parseSize(this.settings.maxFileSize || '100MB')
+      }
     });
   }
 
@@ -102,14 +102,14 @@ class CloudStoragePlugin extends BasePlugin {
       }
 
       switch (service) {
-        case 'gdrive':
-          await this.handleGoogleDriveRequest(req, res, action);
-          break;
-        case 'mega':
-          await this.handleMegaRequest(req, res, action);
-          break;
-        default:
-          next();
+      case 'gdrive':
+        await this.handleGoogleDriveRequest(req, res, action);
+        break;
+      case 'mega':
+        await this.handleMegaRequest(req, res, action);
+        break;
+      default:
+        next();
       }
     } catch (error) {
       this.error(`Cloud storage request error: ${error.message}`);
@@ -122,34 +122,34 @@ class CloudStoragePlugin extends BasePlugin {
   // Google Drive Integration
   async handleGoogleDriveRequest(req, res, action) {
     switch (action) {
-      case 'auth':
-        await this.handleGDriveAuth(req, res);
-        break;
-      case 'callback':
-        await this.handleGDriveCallback(req, res);
-        break;
-      case 'list':
-        await this.handleGDriveList(req, res);
-        break;
-      case 'upload':
-        this.upload.single('file')(req, res, async err => {
-          if (err) {
-            return res.status(400).json({ success: false, error: err.message });
-          }
-          await this.handleGDriveUpload(req, res);
-        });
-        break;
-      case 'download':
-        await this.handleGDriveDownload(req, res);
-        break;
-      case 'delete':
-        await this.handleGDriveDelete(req, res);
-        break;
-      case 'status':
-        await this.handleGDriveStatus(req, res);
-        break;
-      default:
-        res.status(400).json({ success: false, error: 'Unknown action' });
+    case 'auth':
+      await this.handleGDriveAuth(req, res);
+      break;
+    case 'callback':
+      await this.handleGDriveCallback(req, res);
+      break;
+    case 'list':
+      await this.handleGDriveList(req, res);
+      break;
+    case 'upload':
+      this.upload.single('file')(req, res, async err => {
+        if (err) {
+          return res.status(400).json({ success: false, error: err.message });
+        }
+        await this.handleGDriveUpload(req, res);
+      });
+      break;
+    case 'download':
+      await this.handleGDriveDownload(req, res);
+      break;
+    case 'delete':
+      await this.handleGDriveDelete(req, res);
+      break;
+    case 'status':
+      await this.handleGDriveStatus(req, res);
+      break;
+    default:
+      res.status(400).json({ success: false, error: 'Unknown action' });
     }
   }
 
@@ -168,7 +168,7 @@ class CloudStoragePlugin extends BasePlugin {
     const authUrl = auth.generateAuthUrl({
       access_type: 'offline',
       scope: ['https://www.googleapis.com/auth/drive.file'],
-      prompt: 'consent',
+      prompt: 'consent'
     });
 
     res.json({ success: true, authUrl });
@@ -230,7 +230,7 @@ class CloudStoragePlugin extends BasePlugin {
       const response = await drive.files.list({
         pageSize: 20,
         fields: 'nextPageToken, files(id, name, mimeType, size, createdTime, modifiedTime)',
-        orderBy: 'modifiedTime desc',
+        orderBy: 'modifiedTime desc'
       });
 
       const files = response.data.files.map(file => ({
@@ -240,7 +240,7 @@ class CloudStoragePlugin extends BasePlugin {
         size: file.size || '0',
         createdTime: file.createdTime,
         modifiedTime: file.modifiedTime,
-        mimeType: file.mimeType,
+        mimeType: file.mimeType
       }));
 
       res.json({ success: true, files });
@@ -259,18 +259,18 @@ class CloudStoragePlugin extends BasePlugin {
 
       const fileMetadata = {
         name: req.file.originalname,
-        parents: req.body.folderId ? [req.body.folderId] : undefined,
+        parents: req.body.folderId ? [req.body.folderId] : undefined
       };
 
       const media = {
         mimeType: req.file.mimetype,
-        body: fs.createReadStream(req.file.path),
+        body: fs.createReadStream(req.file.path)
       };
 
       const response = await drive.files.create({
         requestBody: fileMetadata,
         media: media,
-        fields: 'id, name, size, createdTime',
+        fields: 'id, name, size, createdTime'
       });
 
       // Clean up uploaded file
@@ -282,8 +282,8 @@ class CloudStoragePlugin extends BasePlugin {
           id: response.data.id,
           name: response.data.name,
           size: response.data.size,
-          createdTime: response.data.createdTime,
-        },
+          createdTime: response.data.createdTime
+        }
       });
     } catch (error) {
       // Clean up uploaded file on error
@@ -336,31 +336,31 @@ class CloudStoragePlugin extends BasePlugin {
   // Mega Integration
   async handleMegaRequest(req, res, action) {
     switch (action) {
-      case 'login':
-        await this.handleMegaLogin(req, res);
-        break;
-      case 'list':
-        await this.handleMegaList(req, res);
-        break;
-      case 'upload':
-        this.upload.single('file')(req, res, async err => {
-          if (err) {
-            return res.status(400).json({ success: false, error: err.message });
-          }
-          await this.handleMegaUpload(req, res);
-        });
-        break;
-      case 'download':
-        await this.handleMegaDownload(req, res);
-        break;
-      case 'delete':
-        await this.handleMegaDelete(req, res);
-        break;
-      case 'status':
-        await this.handleMegaStatus(req, res);
-        break;
-      default:
-        res.status(400).json({ success: false, error: 'Unknown action' });
+    case 'login':
+      await this.handleMegaLogin(req, res);
+      break;
+    case 'list':
+      await this.handleMegaList(req, res);
+      break;
+    case 'upload':
+      this.upload.single('file')(req, res, async err => {
+        if (err) {
+          return res.status(400).json({ success: false, error: err.message });
+        }
+        await this.handleMegaUpload(req, res);
+      });
+      break;
+    case 'download':
+      await this.handleMegaDownload(req, res);
+      break;
+    case 'delete':
+      await this.handleMegaDelete(req, res);
+      break;
+    case 'status':
+      await this.handleMegaStatus(req, res);
+      break;
+    default:
+      res.status(400).json({ success: false, error: 'Unknown action' });
     }
   }
 
@@ -400,7 +400,7 @@ class CloudStoragePlugin extends BasePlugin {
         type: file.directory ? 'folder' : 'file',
         size: file.size ? file.size.toString() : '0',
         createdTime: file.timestamp ? new Date(file.timestamp * 1000).toISOString() : null,
-        modifiedTime: file.timestamp ? new Date(file.timestamp * 1000).toISOString() : null,
+        modifiedTime: file.timestamp ? new Date(file.timestamp * 1000).toISOString() : null
       }));
 
       res.json({ success: true, files: fileList });
@@ -422,7 +422,7 @@ class CloudStoragePlugin extends BasePlugin {
       const buffer = await fs.readFile(req.file.path);
       const upload = await this.megaClient.upload({
         name: req.file.originalname,
-        data: buffer,
+        data: buffer
       });
 
       // Clean up uploaded file
@@ -433,8 +433,8 @@ class CloudStoragePlugin extends BasePlugin {
         file: {
           id: upload.nodeId,
           name: upload.name,
-          size: upload.size ? upload.size.toString() : '0',
-        },
+          size: upload.size ? upload.size.toString() : '0'
+        }
       });
     } catch (error) {
       // Clean up uploaded file on error
@@ -489,7 +489,7 @@ class CloudStoragePlugin extends BasePlugin {
     res.json({
       success: true,
       authenticated: !!this.megaClient,
-      configured: !!this.settings.mega.email,
+      configured: !!this.settings.mega.email
     });
   }
 
@@ -506,8 +506,8 @@ class CloudStoragePlugin extends BasePlugin {
         gdrive: this.gdriveTokens,
         mega: {
           email: this.settings.mega?.email || '',
-          encryptedPassword: this.settings.mega?.encryptedPassword || '',
-        },
+          encryptedPassword: this.settings.mega?.encryptedPassword || ''
+        }
       };
 
       const content = JSON.stringify(tokenData, null, 2);
@@ -561,11 +561,11 @@ class CloudStoragePlugin extends BasePlugin {
         filename: (req, file, cb) => {
           const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
           cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-        },
+        }
       }),
       limits: {
-        fileSize: this.parseSize(this.settings.maxFileSize || '100MB'),
-      },
+        fileSize: this.parseSize(this.settings.maxFileSize || '100MB')
+      }
     });
 
     // Persist settings via plugin manager
@@ -584,7 +584,7 @@ class CloudStoragePlugin extends BasePlugin {
         this.settings.gdrive &&
         this.settings.gdrive.clientId &&
         this.settings.gdrive.clientSecret
-      ),
+      )
     });
   }
 
@@ -594,14 +594,14 @@ class CloudStoragePlugin extends BasePlugin {
       gdrive: {
         enabled: this.settings.gdrive?.enabled || false,
         clientId: this.settings.gdrive?.clientId || '',
-        redirectUri: this.settings.gdrive?.redirectUri || '',
+        redirectUri: this.settings.gdrive?.redirectUri || ''
       },
       mega: {
         enabled: this.settings.mega?.enabled || false,
-        email: this.settings.mega?.email || '',
+        email: this.settings.mega?.email || ''
       },
       uploadPath: this.settings.uploadPath || './uploads',
-      maxFileSize: this.settings.maxFileSize || '100MB',
+      maxFileSize: this.settings.maxFileSize || '100MB'
     };
   }
 }

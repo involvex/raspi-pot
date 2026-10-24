@@ -11,6 +11,8 @@ const si = require('systeminformation');
 const fs_extra = require('fs-extra');
 const multer = require('multer');
 require('dotenv').config();
+const { pihole } = require('./pihole');
+const { startPiholeProxy } = require('./pihole-proxy');
 
 const app = express();
 const server = http.createServer(app);
@@ -23,7 +25,7 @@ const storage = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     cb(null, file.originalname);
-  }
+  },
 });
 const upload = multer({ storage });
 
@@ -33,8 +35,8 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'raspberry';
 const io = new Server(server, {
   cors: {
     origin: '*',
-    methods: ['GET', 'POST']
-  }
+    methods: ['GET', 'POST'],
+  },
 });
 
 app.use(cors());
@@ -87,6 +89,258 @@ app.post('/api/files/upload', authenticateToken, upload.single('file'), (req, re
   res.json({ success: true, message: 'File uploaded' });
 });
 
+// --- Pi-hole v6 REST API bridge (JWT protected, session held server-side) ---
+// Keeps the Pi-hole password/app-password out of the browser entirely.
+const VALID_LISTS = ['allow', 'deny'];
+const VALID_KINDS = ['exact', 'regex'];
+
+const sendPiholeError = (res, err) => {
+  const status = err && err.status >= 400 && err.status < 600 ? err.status : 502;
+  res.status(status).json({ error: err ? err.message : 'Pi-hole request failed' });
+};
+
+const piholeRoute = handler => async (req, res) => {
+  try {
+    await handler(req, res);
+  } catch (err) {
+    sendPiholeError(res, err);
+  }
+};
+
+app.get(
+  '/api/pihole/status',
+  authenticateToken,
+  piholeRoute(async (req, res) => {
+    const adminProxy = {
+      enabled: String(process.env.PIHOLE_ENABLE_PROXY || 'true').toLowerCase() !== 'false',
+      port: Number(process.env.PIHOLE_ADMIN_PROXY_PORT || 8081),
+    };
+    try {
+      const version = await pihole.getVersion();
+      res.json({ reachable: true, url: pihole.baseUrl, version, adminProxy });
+    } catch (err) {
+      res.json({ reachable: false, url: pihole.baseUrl, error: err.message, adminProxy });
+    }
+  })
+);
+
+app.get(
+  '/api/pihole/version',
+  authenticateToken,
+  piholeRoute(async (req, res) => res.json(await pihole.getVersion()))
+);
+app.get(
+  '/api/pihole/summary',
+  authenticateToken,
+  piholeRoute(async (req, res) => res.json(await pihole.getSummary()))
+);
+app.get(
+  '/api/pihole/history',
+  authenticateToken,
+  piholeRoute(async (req, res) => res.json(await pihole.getHistory(req.query)))
+);
+app.get(
+  '/api/pihole/queries',
+  authenticateToken,
+  piholeRoute(async (req, res) => res.json(await pihole.getQueries(req.query)))
+);
+app.get(
+  '/api/pihole/stats/top_domains',
+  authenticateToken,
+  piholeRoute(async (req, res) =>
+    res.json(
+      await pihole.getTopDomains(req.query.blocked === 'true', Number(req.query.count) || 10)
+    )
+  )
+);
+app.get(
+  '/api/pihole/stats/top_clients',
+  authenticateToken,
+  piholeRoute(async (req, res) =>
+    res.json(
+      await pihole.getTopClients(req.query.blocked === 'true', Number(req.query.count) || 10)
+    )
+  )
+);
+app.get(
+  '/api/pihole/stats/upstreams',
+  authenticateToken,
+  piholeRoute(async (req, res) => res.json(await pihole.getUpstreams()))
+);
+app.get(
+  '/api/pihole/stats/recent_blocked',
+  authenticateToken,
+  piholeRoute(async (req, res) =>
+    res.json(await pihole.getRecentBlocked(Number(req.query.count) || 1))
+  )
+);
+
+app.get(
+  '/api/pihole/blocking',
+  authenticateToken,
+  piholeRoute(async (req, res) => res.json(await pihole.getBlocking()))
+);
+app.post(
+  '/api/pihole/blocking',
+  authenticateToken,
+  piholeRoute(async (req, res) => {
+    const { blocking, timer } = req.body || {};
+    res.json(await pihole.setBlocking(blocking !== false, timer === undefined ? null : timer));
+  })
+);
+
+app.get(
+  '/api/pihole/domains',
+  authenticateToken,
+  piholeRoute(async (req, res) => {
+    const { list, kind } = req.query;
+    if (VALID_LISTS.includes(list) && VALID_KINDS.includes(kind)) {
+      return res.json(await pihole.getDomains(list, kind));
+    }
+    res.json(await pihole.getAllDomains());
+  })
+);
+app.post(
+  '/api/pihole/domains',
+  authenticateToken,
+  piholeRoute(async (req, res) => {
+    const { list, kind, domain, comment, groups, enabled } = req.body || {};
+    if (!VALID_LISTS.includes(list) || !VALID_KINDS.includes(kind) || !domain) {
+      return res
+        .status(400)
+        .json({ error: 'list (allow|deny), kind (exact|regex) and domain are required' });
+    }
+    res.json(await pihole.addDomain(list, kind, domain, { comment, groups, enabled }));
+  })
+);
+app.delete(
+  '/api/pihole/domains/:list/:kind/:domain',
+  authenticateToken,
+  piholeRoute(async (req, res) => {
+    const { list, kind, domain } = req.params;
+    if (!VALID_LISTS.includes(list) || !VALID_KINDS.includes(kind)) {
+      return res.status(400).json({ error: 'Invalid list or kind' });
+    }
+    res.json(await pihole.deleteDomain(list, kind, domain));
+  })
+);
+
+app.get(
+  '/api/pihole/lists',
+  authenticateToken,
+  piholeRoute(async (req, res) => res.json(await pihole.getLists()))
+);
+app.post(
+  '/api/pihole/lists',
+  authenticateToken,
+  piholeRoute(async (req, res) => {
+    const { address, comment, groups, enabled } = req.body || {};
+    if (!address) return res.status(400).json({ error: 'address is required' });
+    res.json(await pihole.addList(address, { comment, groups, enabled }));
+  })
+);
+app.delete(
+  '/api/pihole/lists',
+  authenticateToken,
+  piholeRoute(async (req, res) => {
+    const address = (req.body && req.body.address) || req.query.address;
+    if (!address) return res.status(400).json({ error: 'address is required' });
+    res.json(await pihole.deleteList(address));
+  })
+);
+
+app.get(
+  '/api/pihole/groups',
+  authenticateToken,
+  piholeRoute(async (req, res) => res.json(await pihole.getGroups()))
+);
+app.post(
+  '/api/pihole/groups',
+  authenticateToken,
+  piholeRoute(async (req, res) => {
+    const { name, comment } = req.body || {};
+    if (!name) return res.status(400).json({ error: 'name is required' });
+    res.json(await pihole.addGroup(name, comment));
+  })
+);
+app.delete(
+  '/api/pihole/groups/:name',
+  authenticateToken,
+  piholeRoute(async (req, res) => res.json(await pihole.deleteGroup(req.params.name)))
+);
+
+app.get(
+  '/api/pihole/config',
+  authenticateToken,
+  piholeRoute(async (req, res) => {
+    if (!req.query.path) return res.status(400).json({ error: 'path is required' });
+    res.json(await pihole.getConfig(req.query.path));
+  })
+);
+app.patch(
+  '/api/pihole/config',
+  authenticateToken,
+  piholeRoute(async (req, res) => {
+    const { path: configPath, value } = req.body || {};
+    if (!configPath) return res.status(400).json({ error: 'path is required' });
+    res.json(await pihole.patchConfig(configPath, value));
+  })
+);
+
+app.post(
+  '/api/pihole/action',
+  authenticateToken,
+  piholeRoute(async (req, res) => {
+    const action = (req.body && req.body.action) || req.query.action;
+    const allowed = [
+      'gravity',
+      'restartdns',
+      'flush/logs',
+      'flush/arp',
+      'restart',
+      'shutdown',
+      'flush/messages',
+      'flush/network',
+    ];
+    if (!allowed.includes(action))
+      return res.status(400).json({ error: `Unsupported action: ${action}` });
+    res.json(await pihole.runAction(action));
+  })
+);
+
+app.get(
+  '/api/pihole/logs/:type',
+  authenticateToken,
+  piholeRoute(async (req, res) => {
+    const allowed = ['dnsmasq', 'ftl', 'webserver'];
+    if (!allowed.includes(req.params.type))
+      return res.status(400).json({ error: 'Unknown log type' });
+    res.json(await pihole.getLogs(req.params.type, req.query.nextID));
+  })
+);
+
+app.get(
+  '/api/pihole/dhcp/leases',
+  authenticateToken,
+  piholeRoute(async (req, res) => res.json(await pihole.getDhcpLeases()))
+);
+app.get(
+  '/api/pihole/network/devices',
+  authenticateToken,
+  piholeRoute(async (req, res) => res.json(await pihole.getNetworkDevices()))
+);
+
+app.get(
+  '/api/pihole/teleporter',
+  authenticateToken,
+  piholeRoute(async (req, res) => {
+    const { data, contentType } = await pihole.getTeleporter();
+    res.setHeader('Content-Type', contentType || 'application/zip');
+    res.setHeader('Content-Disposition', 'attachment; filename="pi-hole-teleporter.zip"');
+    res.send(data);
+  })
+);
+
 // Serve static files from the lightweight public directory
 app.use(express.static(path.join(__dirname, '../public')));
 
@@ -114,32 +368,64 @@ io.on('connection', socket => {
   console.log('Client connected:', socket.id);
 
   let ptyProcess = null;
+  let ptyCols = 80;
+  let ptyRows = 24;
 
-  socket.on('terminal:start', ({ cols, rows } = {}) => {
-    if (ptyProcess) return;
-    const safeCols = cols || 80;
-    const safeRows = rows || 24;
+  const startPty = mode => {
+    if (ptyProcess) {
+      try {
+        ptyProcess.kill();
+      } catch (e) {
+        /* ignore */
+      }
+      ptyProcess = null;
+    }
+
+    let file = shell;
+    let args = [];
+    if (process.platform !== 'win32') {
+      if (mode === 'root') {
+        file = 'sudo';
+        args = ['-i'];
+      } else {
+        args = ['-l'];
+      }
+    }
 
     try {
-      ptyProcess = pty.spawn(shell, [], {
+      ptyProcess = pty.spawn(file, args, {
         name: 'xterm-color',
-        cols: safeCols,
-        rows: safeRows,
+        cols: ptyCols,
+        rows: ptyRows,
         cwd: process.env.HOME,
-        env: process.env
+        env: process.env,
       });
 
       ptyProcess.onData(data => {
         socket.emit('terminal:output', data);
       });
 
-      ptyProcess.onExit(() => {
-        socket.emit('terminal:exit');
+      ptyProcess.onExit(({ exitCode }) => {
+        socket.emit('terminal:exit', { exitCode });
         ptyProcess = null;
       });
     } catch (e) {
       console.error('Failed to spawn pty:', e);
+      socket.emit('terminal:output', `\r\n\x1b[31mFailed to start shell: ${e.message}\x1b[0m\r\n`);
     }
+  };
+
+  socket.on('terminal:start', ({ cols, rows, mode } = {}) => {
+    ptyCols = cols || ptyCols;
+    ptyRows = rows || ptyRows;
+    if (ptyProcess) return;
+    startPty(mode);
+  });
+
+  socket.on('terminal:restart', ({ cols, rows, mode } = {}) => {
+    ptyCols = cols || ptyCols;
+    ptyRows = rows || ptyRows;
+    startPty(mode);
   });
 
   socket.on('terminal:input', data => {
@@ -156,7 +442,7 @@ io.on('connection', socket => {
   socket.on('processes:watch', (interval = 10000) => {
     if (processTimeout) clearTimeout(processTimeout);
 
-    const sendProcesses = async() => {
+    const sendProcesses = async () => {
       try {
         const data = await si.processes();
         const topProcs = data.list
@@ -167,7 +453,7 @@ io.on('connection', socket => {
             name: p.name,
             cpu: Math.round(p.cpu * 10) / 10,
             mem: Math.round(p.mem * 10) / 10,
-            user: p.user
+            user: p.user,
           }));
         socket.emit('processes:data', topProcs);
       } catch (e) {
@@ -190,8 +476,7 @@ io.on('connection', socket => {
     exec(`kill -9 ${pid}`, err => {
       if (err)
         socket.emit('notification', { type: 'error', message: `Failed to kill process ${pid}` });
-      else
-        socket.emit('notification', { type: 'success', message: `Process ${pid} killed` });
+      else socket.emit('notification', { type: 'success', message: `Process ${pid} killed` });
     });
   });
 
@@ -202,12 +487,16 @@ io.on('connection', socket => {
   });
 
   // --- Service Management ---
-  socket.on('services:get', async() => {
+  socket.on('services:get', async () => {
     try {
       exec(
         'systemctl list-units --type=service --state=running,stopped --no-pager --no-legend',
         (err, stdout) => {
-          if (err) return socket.emit('notification', { type: 'error', message: 'Failed to fetch services' });
+          if (err)
+            return socket.emit('notification', {
+              type: 'error',
+              message: 'Failed to fetch services',
+            });
 
           const services = stdout
             .split('\n')
@@ -219,7 +508,7 @@ io.on('connection', socket => {
                 load: parts[1],
                 active: parts[2],
                 sub: parts[3],
-                description: parts.slice(4).join(' ')
+                description: parts.slice(4).join(' '),
               };
             });
           socket.emit('services:data', services);
@@ -243,77 +532,93 @@ io.on('connection', socket => {
   });
 
   // --- Network Management ---
-  socket.on('network:get_status', async() => {
+  socket.on('network:get_status', async () => {
     try {
-      const [interfaces, dns] = await Promise.all([
-        si.networkInterfaces(),
-        new Promise((resolve) => {
-          exec('nmcli -t -f IP4.DNS device show', (err, stdout) => {
-            if (err) return resolve([]);
-            const dnsList = stdout.split('\n')
-              .filter(line => line.startsWith('IP4.DNS'))
-              .map(line => line.split(':')[1]);
-            resolve([...new Set(dnsList)]);
-          });
-        })
-      ]);
+      const dns = await new Promise(resolve => {
+        exec('nmcli -t -f IP4.DNS device show', (err, stdout) => {
+          if (err) return resolve([]);
+          const dnsList = stdout
+            .split('\n')
+            .filter(line => line.startsWith('IP4.DNS'))
+            .map(line => line.split(':')[1]);
+          resolve([...new Set(dnsList)]);
+        });
+      });
 
       // Detailed per-interface info using nmcli for deep status
-      exec('nmcli -t -f DEVICE,TYPE,STATE,CONNECTION,IP4.ADDRESS,IP4.GATEWAY device show', (err, stdout) => {
-        if (err) return socket.emit('notification', { type: 'error', message: 'Failed to fetch deep network status' });
+      exec(
+        'nmcli -t -f DEVICE,TYPE,STATE,CONNECTION,IP4.ADDRESS,IP4.GATEWAY device show',
+        (err, stdout) => {
+          if (err)
+            return socket.emit('notification', {
+              type: 'error',
+              message: 'Failed to fetch deep network status',
+            });
 
-        const devices = [];
-        const lines = stdout.split('\n');
-        let currentDevice = {};
+          const devices = [];
+          const lines = stdout.split('\n');
+          let currentDevice = {};
 
-        lines.forEach(line => {
-          if (!line.trim()) {
-            if (currentDevice.device) devices.push(currentDevice);
-            currentDevice = {};
-            return;
-          }
-          const [key, value] = line.split(':');
-          if (key === 'GENERAL.DEVICE') currentDevice.device = value;
-          if (key === 'GENERAL.TYPE') currentDevice.type = value;
-          if (key === 'GENERAL.STATE') currentDevice.state = value;
-          if (key === 'GENERAL.CONNECTION') currentDevice.connection = value;
-          if (key === 'IP4.ADDRESS[1]') currentDevice.ip = value;
-          if (key === 'IP4.GATEWAY') currentDevice.gateway = value;
-        });
-        if (currentDevice.device) devices.push(currentDevice);
+          lines.forEach(line => {
+            if (!line.trim()) {
+              if (currentDevice.device) devices.push(currentDevice);
+              currentDevice = {};
+              return;
+            }
+            const [key, value] = line.split(':');
+            if (key === 'GENERAL.DEVICE') currentDevice.device = value;
+            if (key === 'GENERAL.TYPE') currentDevice.type = value;
+            if (key === 'GENERAL.STATE') currentDevice.state = value;
+            if (key === 'GENERAL.CONNECTION') currentDevice.connection = value;
+            if (key === 'IP4.ADDRESS[1]') currentDevice.ip = value;
+            if (key === 'IP4.GATEWAY') currentDevice.gateway = value;
+          });
+          if (currentDevice.device) devices.push(currentDevice);
 
-        socket.emit('network:status_data', { devices, dns });
-      });
+          socket.emit('network:status_data', { devices, dns });
+        }
+      );
     } catch (e) {
       console.error('Network status error:', e);
     }
   });
 
-  socket.on('network:set_dns', (dnsServers) => {
+  socket.on('network:set_dns', dnsServers => {
     // dnsServers: array of strings ['8.8.8.8', '1.1.1.1']
     // Note: Setting DNS globally via nmcli on Raspbian usually requires modifying the connection
     // For simplicity, we'll try to set it for the active connection
     exec('nmcli -t -f NAME connection show --active | head -n 1', (err, stdout) => {
-      if (err || !stdout.trim()) return socket.emit('notification', { type: 'error', message: 'No active connection found to set DNS' });
-      
+      if (err || !stdout.trim())
+        return socket.emit('notification', {
+          type: 'error',
+          message: 'No active connection found to set DNS',
+        });
+
       const connName = stdout.trim();
       const dnsStr = dnsServers.join(' ');
-      exec(`sudo nmcli connection modify "${connName}" ipv4.dns "${dnsStr}" && sudo nmcli connection up "${connName}"`, (err) => {
-        if (err) socket.emit('notification', { type: 'error', message: 'Failed to update DNS' });
-        else {
-          socket.emit('notification', { type: 'success', message: `DNS updated for ${connName}` });
-          socket.emit('network:refresh');
+      exec(
+        `sudo nmcli connection modify "${connName}" ipv4.dns "${dnsStr}" && sudo nmcli connection up "${connName}"`,
+        err => {
+          if (err) socket.emit('notification', { type: 'error', message: 'Failed to update DNS' });
+          else {
+            socket.emit('notification', {
+              type: 'success',
+              message: `DNS updated for ${connName}`,
+            });
+            socket.emit('network:refresh');
+          }
         }
-      });
+      );
     });
   });
 
   socket.on('network:scan', () => {
     exec('sudo nmcli device wifi rescan', () => {
-      exec('nmcli -t -f active,ssid device wifi | grep \'^yes\' | cut -d: -f2', (err, activeSsid) => {
+      exec("nmcli -t -f active,ssid device wifi | grep '^yes' | cut -d: -f2", (err, activeSsid) => {
         const currentSsid = activeSsid ? activeSsid.trim() : null;
         exec('nmcli -t -f SSID,SIGNAL,BARS,SECURITY device wifi list', (err, stdout) => {
-          if (err) return socket.emit('notification', { type: 'error', message: 'WiFi scan failed' });
+          if (err)
+            return socket.emit('notification', { type: 'error', message: 'WiFi scan failed' });
           const networks = stdout
             .split('\n')
             .filter(line => line.trim() && !line.startsWith('--'))
@@ -324,7 +629,7 @@ io.on('connection', socket => {
                 signal: parseInt(signal) || 0,
                 bars,
                 security,
-                connected: ssid === currentSsid && currentSsid !== null
+                connected: ssid === currentSsid && currentSsid !== null,
               };
             });
 
@@ -340,7 +645,11 @@ io.on('connection', socket => {
 
   socket.on('network:get_saved', () => {
     exec('nmcli -t -f NAME,TYPE,DEVICE connection show', (err, stdout) => {
-      if (err) return socket.emit('notification', { type: 'error', message: 'Failed to get saved networks' });
+      if (err)
+        return socket.emit('notification', {
+          type: 'error',
+          message: 'Failed to get saved networks',
+        });
       const connections = stdout
         .split('\n')
         .filter(line => line.trim())
@@ -358,7 +667,8 @@ io.on('connection', socket => {
       ? `sudo nmcli device wifi connect "${ssid}" password "${password}"`
       : `sudo nmcli device wifi connect "${ssid}"`;
     exec(cmd, err => {
-      if (err) socket.emit('notification', { type: 'error', message: `Failed to connect to ${ssid}` });
+      if (err)
+        socket.emit('notification', { type: 'error', message: `Failed to connect to ${ssid}` });
       else socket.emit('notification', { type: 'success', message: `Connected to ${ssid}` });
       socket.emit('network:refresh');
     });
@@ -372,14 +682,14 @@ io.on('connection', socket => {
     });
   });
 
-  socket.on('settings:update_password', async({ currentPassword, newPassword }) => {
+  socket.on('settings:update_password', async ({ currentPassword, newPassword }) => {
     if (currentPassword !== process.env.ADMIN_PASSWORD) {
       return socket.emit('notification', { type: 'error', message: 'Current password incorrect' });
     }
     try {
       const envPath = path.join(__dirname, '../.env');
       let envContent = '';
-      
+
       if (await fs_extra.pathExists(envPath)) {
         envContent = await fs_extra.readFile(envPath, 'utf8');
       }
@@ -410,12 +720,15 @@ io.on('connection', socket => {
           name: item.name,
           isDirectory: item.isDirectory(),
           path: path.join(target, item.name),
-          size: item.isDirectory() ? 0 : fs_extra.statSync(path.join(target, item.name)).size
+          size: item.isDirectory() ? 0 : fs_extra.statSync(path.join(target, item.name)).size,
         }))
         .sort((a, b) => b.isDirectory - a.isDirectory || a.name.localeCompare(b.name));
       socket.emit('files:data', { path: target, items: list });
     } catch (e) {
-      socket.emit('notification', { type: 'error', message: `Failed to list directory: ${e.message}` });
+      socket.emit('notification', {
+        type: 'error',
+        message: `Failed to list directory: ${e.message}`,
+      });
     }
   });
 
@@ -428,7 +741,7 @@ io.on('connection', socket => {
     }
   });
 
-  socket.on('files:write', async({ path, content }) => {
+  socket.on('files:write', async ({ path, content }) => {
     try {
       await fs_extra.writeFile(path, content, 'utf8');
       socket.emit('notification', { type: 'success', message: 'File saved successfully' });
@@ -463,7 +776,7 @@ io.on('connection', socket => {
   let pins = Array.from({ length: 40 }, (_, i) => ({
     number: i + 1,
     mode: 'IN',
-    state: 'LOW'
+    state: 'LOW',
   }));
 
   socket.on('gpio:get_pins', () => socket.emit('gpio:pins_data', pins));
@@ -475,7 +788,10 @@ io.on('connection', socket => {
       const cmd = `gpio mode ${pinNumber} ${pin.mode === 'OUT' ? 'out' : 'in'}`;
       exec(cmd);
       socket.emit('gpio:pins_data', pins);
-      socket.emit('notification', { type: 'success', message: `Pin ${pinNumber} set to ${pin.mode}` });
+      socket.emit('notification', {
+        type: 'success',
+        message: `Pin ${pinNumber} set to ${pin.mode}`,
+      });
     }
   });
 
@@ -489,8 +805,33 @@ io.on('connection', socket => {
     }
   });
 
+  // --- Pi-hole live summary ---
+  let piholeTimeout = null;
+
+  socket.on('pihole:watch', (interval = 5000) => {
+    if (piholeTimeout) clearInterval(piholeTimeout);
+    const tick = async () => {
+      try {
+        socket.emit('pihole:summary', await pihole.getSummary());
+      } catch (e) {
+        socket.emit('pihole:error', { message: e.message });
+      }
+    };
+    tick();
+    const ms = Math.max(2000, Math.min(60000, Number(interval) || 5000));
+    piholeTimeout = setInterval(tick, ms);
+  });
+
+  socket.on('pihole:unwatch', () => {
+    if (piholeTimeout) {
+      clearInterval(piholeTimeout);
+      piholeTimeout = null;
+    }
+  });
+
   socket.on('disconnect', () => {
     if (processTimeout) clearTimeout(processTimeout);
+    if (piholeTimeout) clearInterval(piholeTimeout);
     if (ptyProcess) {
       ptyProcess.kill();
       ptyProcess = null;
@@ -502,7 +843,17 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 
-  let cachedStats = { disk_used: '0.0 GB', disk_total: '0.0 GB', ip: 'Disconnected', interfaces: '' };
+  // Expose the official Pi-hole admin UI on a second port for the iframe fallback.
+  if (String(process.env.PIHOLE_ENABLE_PROXY || 'true').toLowerCase() !== 'false') {
+    startPiholeProxy().catch(err => console.warn('[pihole-proxy]', err.message));
+  }
+
+  let cachedStats = {
+    disk_used: '0.0 GB',
+    disk_total: '0.0 GB',
+    ip: 'Disconnected',
+    interfaces: '',
+  };
   let fastInterval = 5000;
   let slowInterval = 60000;
 
@@ -515,9 +866,11 @@ server.listen(PORT, () => {
         disk_used: (rootFs.used / 1024 ** 3).toFixed(1) + ' GB',
         disk_total: (rootFs.size / 1024 ** 3).toFixed(1) + ' GB',
         ips: activeNet.map(n => ({ iface: n.iface, ip: n.ip4 })),
-        interfaces: activeNet.map(n => n.iface).join(', ')
+        interfaces: activeNet.map(n => n.iface).join(', '),
       };
-    } catch (e) {}
+    } catch (e) {
+      // Pi 2B: transient telemetry failures are not fatal, keep the last sample.
+    }
     setTimeout(updateSlowStats, slowInterval);
   }
 
@@ -542,11 +895,13 @@ server.listen(PORT, () => {
         mem_used: memCache ? (memCache.active / 1024 ** 3).toFixed(1) + ' GB' : '0.0 GB',
         temp: tempCache?.main || 0,
         uptime: os.uptime(),
-        ...cachedStats
+        ...cachedStats,
       };
       io.emit('telemetry:stats', stats);
-      fastInterval = stats.cpu > 80 ? 10000 : (stats.cpu < 20 ? 3000 : 5000);
-    } catch (e) {}
+      fastInterval = stats.cpu > 80 ? 10000 : stats.cpu < 20 ? 3000 : 5000;
+    } catch (e) {
+      // Pi 2B: transient telemetry failures are not fatal, keep the last sample.
+    }
     setTimeout(updateFastStats, fastInterval);
   }
 

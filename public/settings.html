@@ -1,155 +1,267 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Settings - RaspiPot</title>
-    <link rel="stylesheet" href="css/style.css">
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css" />
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
     <style>
-        .form-group { margin-bottom: 1.5rem; }
-        label { display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.85rem; font-weight: bold; text-transform: uppercase; }
-        input { width: 100%; padding: 0.75rem; background: var(--bg-dark); border: 1px solid var(--border); border-radius: 0.5rem; color: white; box-sizing: border-box; outline: none; }
-        input:focus { border-color: var(--primary); }
-        button { background: var(--primary); color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 0.5rem; cursor: pointer; font-weight: bold; }
-        .setting-card { margin-bottom: 2rem; }
-        .flex-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
-        .flex-row .info { display: flex; flex-direction: column; gap: 0.25rem; }
-        .flex-row .info .name { font-weight: bold; color: var(--text-main); }
-        .flex-row .info .desc { font-size: 0.8rem; color: var(--text-muted); }
-        .num-input { width: 100px; text-align: center; }
+      .form-group {
+        margin-bottom: 1.5rem;
+      }
+      label {
+        display: block;
+        margin-bottom: 0.5rem;
+        color: var(--text-muted);
+        font-size: 0.85rem;
+        font-weight: bold;
+        text-transform: uppercase;
+      }
+      input {
+        width: 100%;
+        padding: 0.75rem;
+        background: var(--bg-dark);
+        border: 1px solid var(--border);
+        border-radius: 0.5rem;
+        color: white;
+        box-sizing: border-box;
+        outline: none;
+      }
+      input:focus {
+        border-color: var(--primary);
+      }
+      button {
+        background: var(--primary);
+        color: white;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 0.5rem;
+        cursor: pointer;
+        font-weight: bold;
+      }
+      .setting-card {
+        margin-bottom: 2rem;
+      }
+      .flex-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+      }
+      .flex-row .info {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+      }
+      .flex-row .info .name {
+        font-weight: bold;
+        color: var(--text-main);
+      }
+      .flex-row .info .desc {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+      }
+      .num-input {
+        width: 100px;
+        text-align: center;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <aside>
-        <div class="brand">
-            <span class="material-icons text-primary">memory</span>
-            <div style="display: flex; flex-direction: column;">
-                <span class="name">RaspiPot</span>
-                <span style="font-size: 0.7rem; color: var(--text-muted);">v2.4.1 stable</span>
-            </div>
+      <div class="brand">
+        <span class="material-icons text-primary">memory</span>
+        <div style="display: flex; flex-direction: column">
+          <span class="name">RaspiPot</span>
+          <span style="font-size: 0.7rem; color: var(--text-muted)">v2.4.1 stable</span>
         </div>
-        <nav>
-            <a href="/" class="nav-item"><span class="material-icons">dashboard</span> Overview</a>
-            <a href="/processes.html" class="nav-item"><span class="material-icons">settings_applications</span> Processes</a>
-            <a href="/services.html" class="nav-item"><span class="material-icons">layers</span> Services</a>
-            <a href="/gpio.html" class="nav-item"><span class="material-icons">settings_input_component</span> GPIO</a>
-            <a href="/network.html" class="nav-item"><span class="material-icons">router</span> Network</a>
-            <a href="/terminal.html" class="nav-item"><span class="material-icons">terminal</span> Terminal</a>
-            <a href="/files.html" class="nav-item"><span class="material-icons">folder</span> Explorer</a>
-            <a href="/scripts.html" class="nav-item"><span class="material-icons">play_circle</span> Scripts</a>
-            <a href="/settings.html" class="nav-item active"><span class="material-icons">settings</span> Settings</a>
-        </nav>
+      </div>
+      <nav>
+        <a href="/" class="nav-item"><span class="material-icons">dashboard</span> Overview</a>
+        <a href="/processes.html" class="nav-item"
+          ><span class="material-icons">settings_applications</span> Processes</a
+        >
+        <a href="/services.html" class="nav-item"
+          ><span class="material-icons">layers</span> Services</a
+        >
+        <a href="/pihole.html" class="nav-item"
+          ><span class="material-icons">security</span> Pi-hole</a
+        >
+        <a href="/gpio.html" class="nav-item"
+          ><span class="material-icons">settings_input_component</span> GPIO</a
+        >
+        <a href="/network.html" class="nav-item"
+          ><span class="material-icons">router</span> Network</a
+        >
+        <a href="/terminal.html" class="nav-item"
+          ><span class="material-icons">terminal</span> Terminal</a
+        >
+        <a href="/files.html" class="nav-item"
+          ><span class="material-icons">folder</span> Explorer</a
+        >
+        <a href="/scripts.html" class="nav-item"
+          ><span class="material-icons">play_circle</span> Scripts</a
+        >
+        <a href="/settings.html" class="nav-item active"
+          ><span class="material-icons">settings</span> Settings</a
+        >
+      </nav>
     </aside>
 
     <main>
-        <header>
-            <h1>System Settings</h1>
-        </header>
+      <header>
+        <h1>System Settings</h1>
+      </header>
 
-        <div class="grid">
-            <section class="card setting-card">
-                <div class="card-header"><span class="material-icons" style="font-size: 1rem;">security</span> Security & Authentication</div>
-                <form id="passForm" style="margin-top: 1rem;">
-                    <div class="form-group">
-                        <label>Current Admin Password</label>
-                        <input type="password" id="currPass" required placeholder="••••••••">
-                    </div>
-                    <div class="form-group">
-                        <label>New Secure Password</label>
-                        <input type="password" id="newPass" required placeholder="••••••••">
-                    </div>
-                    <div class="form-group">
-                        <label>Confirm New Password</label>
-                        <input type="password" id="confPass" required placeholder="••••••••">
-                    </div>
-                    <button type="submit">Update Password</button>
-                </form>
-            </section>
+      <div class="grid">
+        <section class="card setting-card">
+          <div class="card-header">
+            <span class="material-icons" style="font-size: 1rem">security</span> Security &
+            Authentication
+          </div>
+          <form id="passForm" style="margin-top: 1rem">
+            <div class="form-group">
+              <label>Current Admin Password</label>
+              <input type="password" id="currPass" required placeholder="••••••••" />
+            </div>
+            <div class="form-group">
+              <label>New Secure Password</label>
+              <input type="password" id="newPass" required placeholder="••••••••" />
+            </div>
+            <div class="form-group">
+              <label>Confirm New Password</label>
+              <input type="password" id="confPass" required placeholder="••••••••" />
+            </div>
+            <button type="submit">Update Password</button>
+          </form>
+        </section>
 
-            <section class="card setting-card">
-                <div class="card-header"><span class="material-icons" style="font-size: 1rem;">tune</span> Performance Optimization</div>
-                <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1.5rem;">Adjust update intervals to balance real-time data vs CPU usage on Raspberry Pi 2B.</p>
-                
-                <div class="flex-row">
-                    <div class="info">
-                        <span class="name">Telemetry Refresh</span>
-                        <span class="desc">Dashboard stat updates (ms)</span>
-                    </div>
-                    <input type="number" class="num-input" id="telemetryRate" value="2000" step="500" min="500">
-                </div>
+        <section class="card setting-card">
+          <div class="card-header">
+            <span class="material-icons" style="font-size: 1rem">tune</span> Performance
+            Optimization
+          </div>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1.5rem">
+            Adjust update intervals to balance real-time data vs CPU usage on Raspberry Pi 2B.
+          </p>
 
-                <div class="flex-row">
-                    <div class="info">
-                        <span class="name">Process List Refresh</span>
-                        <span class="desc">Update rate for task manager (ms)</span>
-                    </div>
-                    <input type="number" class="num-input" id="processRate" value="10000" step="1000" min="1000">
-                </div>
+          <div class="flex-row">
+            <div class="info">
+              <span class="name">Telemetry Refresh</span>
+              <span class="desc">Dashboard stat updates (ms)</span>
+            </div>
+            <input
+              type="number"
+              class="num-input"
+              id="telemetryRate"
+              value="2000"
+              step="500"
+              min="500"
+            />
+          </div>
 
-                <div class="flex-row">
-                    <div class="info">
-                        <span class="name">Hardware Sync</span>
-                        <span class="desc">Sync GPIO hardware state (ms)</span>
-                    </div>
-                    <input type="number" class="num-input" id="gpioRate" value="5000" step="500" min="1000">
-                </div>
+          <div class="flex-row">
+            <div class="info">
+              <span class="name">Process List Refresh</span>
+              <span class="desc">Update rate for task manager (ms)</span>
+            </div>
+            <input
+              type="number"
+              class="num-input"
+              id="processRate"
+              value="10000"
+              step="1000"
+              min="1000"
+            />
+          </div>
 
-                <button style="width: 100%; margin-top: 1rem; background: var(--bg-dark); border: 1px solid var(--border);" onclick="saveRates()">Apply Optimization</button>
-            </section>
+          <div class="flex-row">
+            <div class="info">
+              <span class="name">Hardware Sync</span>
+              <span class="desc">Sync GPIO hardware state (ms)</span>
+            </div>
+            <input
+              type="number"
+              class="num-input"
+              id="gpioRate"
+              value="5000"
+              step="500"
+              min="1000"
+            />
+          </div>
 
-            <section class="card setting-card">
-                <div class="card-header">About RaspiPot</div>
-                <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
-                    <span class="material-icons text-primary" style="font-size: 2.5rem;">memory</span>
-                    <div>
-                        <div style="font-weight: bold;">v2.4.1 Lightweight (Raspbian)</div>
-                        <div style="font-size: 0.8rem; color: var(--text-muted);">Environment: Node.js {node_version}</div>
-                    </div>
-                </div>
-                <p style="font-size: 0.9rem; line-height: 1.5; color: var(--text-muted);">
-                    Custom built for high-efficiency Raspberry Pi management. This framework-less version removes all browser-side reactivity overhead, allowing your Pi 2B to focus on system tasks rather than rendering logic.
-                </p>
-            </section>
-        </div>
+          <button
+            style="
+              width: 100%;
+              margin-top: 1rem;
+              background: var(--bg-dark);
+              border: 1px solid var(--border);
+            "
+            onclick="saveRates()"
+          >
+            Apply Optimization
+          </button>
+        </section>
+
+        <section class="card setting-card">
+          <div class="card-header">About RaspiPot</div>
+          <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem">
+            <span class="material-icons text-primary" style="font-size: 2.5rem">memory</span>
+            <div>
+              <div style="font-weight: bold">v2.4.1 Lightweight (Raspbian)</div>
+              <div style="font-size: 0.8rem; color: var(--text-muted)">
+                Environment: Node.js {node_version}
+              </div>
+            </div>
+          </div>
+          <p style="font-size: 0.9rem; line-height: 1.5; color: var(--text-muted)">
+            Custom built for high-efficiency Raspberry Pi management. This framework-less version
+            removes all browser-side reactivity overhead, allowing your Pi 2B to focus on system
+            tasks rather than rendering logic.
+          </p>
+        </section>
+      </div>
     </main>
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="js/app.js"></script>
     <script>
-        // Load stored rates
-        window.onload = () => {
-            if(localStorage.getItem('telemetryRate')) document.getElementById('telemetryRate').value = localStorage.getItem('telemetryRate');
-            if(localStorage.getItem('processRate')) document.getElementById('processRate').value = localStorage.getItem('processRate');
-        };
+      // Load stored rates
+      window.onload = () => {
+        if (localStorage.getItem('telemetryRate'))
+          document.getElementById('telemetryRate').value = localStorage.getItem('telemetryRate');
+        if (localStorage.getItem('processRate'))
+          document.getElementById('processRate').value = localStorage.getItem('processRate');
+      };
 
-        function saveRates() {
-            const tel = document.getElementById('telemetryRate').value;
-            const proc = document.getElementById('processRate').value;
-            localStorage.setItem('telemetryRate', tel);
-            localStorage.setItem('processRate', proc);
-            alert('Optimization settings saved to browser session.');
-            location.reload();
-        }
+      function saveRates() {
+        const tel = document.getElementById('telemetryRate').value;
+        const proc = document.getElementById('processRate').value;
+        localStorage.setItem('telemetryRate', tel);
+        localStorage.setItem('processRate', proc);
+        alert('Optimization settings saved to browser session.');
+        location.reload();
+      }
 
-        document.getElementById('passForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            const currentPassword = document.getElementById('currPass').value;
-            const newPassword = document.getElementById('newPass').value;
-            const conf = document.getElementById('confPass').value;
+      document.getElementById('passForm').addEventListener('submit', e => {
+        e.preventDefault();
+        const currentPassword = document.getElementById('currPass').value;
+        const newPassword = document.getElementById('newPass').value;
+        const conf = document.getElementById('confPass').value;
 
-            if (newPassword !== conf) return alert('New passwords do not match');
-            
-            socket.emit('settings:update_password', { currentPassword, newPassword });
-            
-            document.getElementById('currPass').value = '';
-            document.getElementById('newPass').value = '';
-            document.getElementById('confPass').value = '';
-        });
+        if (newPassword !== conf) return alert('New passwords do not match');
 
-        socket.on('notification', (data) => {
-            alert(`${data.type.toUpperCase()}: ${data.message}`);
-        });
+        socket.emit('settings:update_password', { currentPassword, newPassword });
+
+        document.getElementById('currPass').value = '';
+        document.getElementById('newPass').value = '';
+        document.getElementById('confPass').value = '';
+      });
+
+      socket.on('notification', data => {
+        alert(`${data.type.toUpperCase()}: ${data.message}`);
+      });
     </script>
-</body>
+  </body>
 </html>

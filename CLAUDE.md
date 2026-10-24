@@ -11,32 +11,37 @@ RaspiPot is a web-based Raspberry Pi management dashboard providing real-time te
 ### Running the Application
 
 ```bash
-npm run dev          # Start both server and client in dev mode (runs concurrently)
-npm run server:dev    # Start server only (node server/index.js)
-npm run client:dev    # Start client only (cd client && npm run dev)
+npm run dev          # Start the server (node server/index.js)
+npm start            # Same as dev
+npm run serve        # pm2 start server/index.js --name raspipot
+npm run logs         # pm2 logs raspipot
 ```
 
-### Building and Production
+There is **no client build**: the UI is plain static HTML/CSS/JS in `public/`,
+served directly by Express.
+
+### Verification
 
 ```bash
-npm run build        # Build frontend for production
-npm start            # Build client and start server (production mode)
+npm run verify        # Full gate: syntax + ESLint + Prettier + tests + HTTP smoke test
+npm test              # Offline structural tests (node --test test/verify.test.js)
+npm run smoke         # Boot the server on a throw-away port and probe the API
+npm run check         # Parse every JS/JSON file
+npm run lint          # ESLint (correctness rules only)
+npm run lint:fix      # ESLint with --fix
+npm run format        # Reformat everything with Prettier (owns all formatting)
+npm run format:check  # Verify formatting without changing anything
 ```
 
-### Code Quality
-
-```bash
-npm run lint         # Run ESLint
-npm run lint:fix     # Auto-fix ESLint issues
-npm run format       # Format all code with Prettier
-npm run format:check # Check formatting without changes
-```
+Prefer `npm run verify` before claiming work is done: it never touches the
+running pm2 process or the Pi-hole admin proxy port.
 
 ### Module System Notes
 
-- **Root package**: CommonJS (`"type": "commonjs"`)
-- **Client package**: ESM (`"type": "module"`)
-- This affects how imports work in each part of the codebase
+- The project is CommonJS (`"type": "commonjs"`) - use `require`.
+- Formatting is owned by Prettier (`.prettierrc`); ESLint only enforces
+  correctness. Run `npm run format` rather than hand-formatting - the two used
+  to conflict over quotes, trailing commas and `async (…) =>` spacing.
 
 ## Architecture
 
@@ -44,20 +49,27 @@ npm run format:check # Check formatting without changes
 
 ```
 raspi-pot/
-├── client/           # SvelteKit frontend (ESM)
-│   ├── src/routes/   # SvelteKit file-based routing
-│   └── build/        # Static build output (served by Express)
-├── server/           # Express.js backend (CommonJS)
-│   ├── index.js       # Main server entry point
-│   ├── plugin-manager.js
-│   └── base-plugin.js  # Plugin base class
-├── plugins/           # Dynamic plugin loading directory
-└── docs/            # Plugin development guides
+├── public/            # Static UI (HTML + CSS + JS) served by Express
+│   ├── js/app.js      # Shared shell: auth, socket, navigation
+│   ├── js/pihole.js   # Pi-hole v6 management UI
+│   └── vendor/        # Vendored xterm.js (ignored by lint + format)
+├── server/            # Express backend (CommonJS)
+│   ├── index.js       # Main server entry point (API, sockets, PTY, telemetry)
+│   ├── pihole.js      # Pi-hole v6 REST client (session auth)
+│   └── pihole-proxy.js # Reverse proxy for the official Pi-hole admin UI
+├── scripts/           # Verification tooling (check-syntax, lint, smoke, verify)
+├── test/              # node:test suites
+└── archive/           # Retired code (old SvelteKit client, plugin system)
 ```
 
-### Plugin System (Core Extensibility)
+### Plugin System (currently archived)
 
-The plugin system is the primary way to extend RaspiPot functionality:
+> **Status:** the plugin runtime is **not wired into `server/index.js`** today.
+> `plugin-manager.js`, `base-plugin.js` and the bundled plugins live in
+> `archive/` and are excluded from lint/format. The notes below describe that
+> retired design - do not assume it runs.
+
+The plugin system used to be the primary way to extend RaspiPot functionality:
 
 **Key Files:**
 
@@ -151,15 +163,21 @@ PORT=3000
 
 Fallback values exist if missing, but production should always define these.
 
-## Code Style (ESLint Enforced)
+## Code Style
 
-- **Indentation:** 2 spaces
-- **Quotes:** Single quotes
-- **Linebreaks:** Unix (LF)
-- **Unused vars:** Allowed if prefixed with `_`
-- **Semicolons:** Required
+Formatting is owned by **Prettier** (`.prettierrc`): 2 spaces, single quotes,
+LF, `printWidth: 100`, `arrowParens: "avoid"`.
 
-See `eslint.config.js` for full rules.
+**ESLint** (`eslint.config.js`) enforces correctness only - `eslint:recommended`
+plus `no-console`:
+
+- **Undefined references:** `no-undef` against the node + browser globals.
+- **Unused vars:** warned, allowed when prefixed with `_`.
+- **Empty blocks / unsound control flow:** `no-empty`, `no-case-declarations`,
+  `no-fallthrough`, `getter-return`, `no-useless-assignment`.
+
+Third-party bundles (`public/vendor/**`) and `archive/**` are ignored by both,
+so vendor code is never reformatted or linted.
 
 ## Important Implementation Patterns
 

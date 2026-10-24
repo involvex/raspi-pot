@@ -29,7 +29,8 @@ RaspiPot is a modern, web-based management interface designed for Raspberry Pi e
   - Install and manage plugins through the web interface.
   - Performance-optimized for Raspberry Pi 2B.
 - **🛠 Service Control:** Start, stop, and restart `systemd` services directly from the browser.
-- **💻 Integrated Terminal:** Full SSH-like terminal access powered by `xterm.js` and `node-pty`.
+- **🕳️ Pi-hole Management (v6):** Native dashboard built on Pi-hole's embedded REST API — live stats, paginated query log, allow/deny lists (exact + regex), adlists, groups, blocking toggle with timers, DNS configuration, gravity updates, log viewer, Teleporter backups, plus the official admin UI embedded via a local proxy.
+- **💻 Integrated Terminal:** Full SSH-like terminal access powered by `xterm.js` and `node-pty`, with quick-command buttons, a user/root shell switch and reconnect.
 - **⚙️ Settings & Security:**
   - Change dashboard passwords securely.
   - Adjust telemetry and process refresh rates for performance optimization.
@@ -39,7 +40,7 @@ RaspiPot is a modern, web-based management interface designed for Raspberry Pi e
 
 ## 🛠 Tech Stack
 
-- **Frontend:** [Svelte 5](https://svelte.dev/), [Vite](https://vitejs.dev/), [Material Icons](https://fonts.google.com/icons).
+- **Frontend:** static HTML/CSS/JS (Material Icons), no build step.
 - **Backend:** [Node.js](https://nodejs.org/), [Express](https://expressjs.com/).
 - **Communication:** [Socket.io](https://socket.io/) for real-time bi-directional events.
 - **System Layer:** [systeminformation](https://systeminformation.io/), [node-pty](https://github.com/microsoft/node-pty), `nmcli` for networking.
@@ -66,12 +67,7 @@ RaspiPot is a modern, web-based management interface designed for Raspberry Pi e
 2. **Install Dependencies:**
 
    ```bash
-   # Install server dependencies
    npm install
-
-   # Install client dependencies
-   cd client && npm install
-   cd ..
    ```
 
 3. **Configure Environment:**
@@ -81,22 +77,61 @@ RaspiPot is a modern, web-based management interface designed for Raspberry Pi e
    JWT_SECRET=your_secret_here
    ADMIN_PASSWORD=raspberry
    PORT=3000
+
+   # Pi-hole v6 (optional)
+   PIHOLE_URL=http://localhost
+   PIHOLE_APP_PASSWORD=your_pihole_password
+   PIHOLE_ADMIN_PROXY_PORT=8081
    ```
 
-4. **Build the Frontend:**
-
-   ```bash
-   cd client
-   npm run build
-   cd ..
-   ```
-
-5. **Start RaspiPot:**
+4. **Start RaspiPot:**
    ```bash
    npm start
    ```
 
 Now access the dashboard at `http://your-pi-ip:3000`.
+
+### Development & verification
+
+Formatting is owned by Prettier (`.prettierrc`); ESLint only enforces correctness
+(undefined references, unused code, unsound control flow, ...). Keep the two in
+sync by running Prettier rather than hand-formatting.
+
+```bash
+npm run verify        # the full gate: syntax + lint + format + tests + HTTP smoke test
+npm test              # offline structural tests (node --test)
+npm run smoke         # boots the server on a throw-away port and probes the API
+npm run check         # parses every JS/JSON file
+npm run lint          # ESLint, correctness rules only
+npm run format        # reformat with Prettier (add format:check in CI)
+```
+
+`npm run verify` is the command to trust before committing — it never touches
+the running pm2 process or the Pi-hole admin proxy port.
+
+---
+
+## 🕳️ Pi-hole Integration
+
+Requires **Pi-hole v6+** (the web server and REST API are embedded in `pihole-FTL`;
+the old PHP/lighttpd web UI is gone). RaspiPot talks to the API server-side and
+keeps your Pi-hole password out of the browser.
+
+1. Set the Pi-hole web/server password: `sudo pihole setpassword`
+   (or use an app password from **Settings → API** if 2FA is enabled).
+2. Point RaspiPot at it in `.env`:
+   ```env
+   PIHOLE_URL=http://localhost
+   PIHOLE_APP_PASSWORD=your_pihole_password
+   ```
+3. Open the **Pi-hole** page in the sidebar.
+
+The **Official Admin** tab embeds the stock Pi-hole interface through a small
+reverse proxy on `PIHOLE_ADMIN_PROXY_PORT` (default `8081`), so the iframe is
+same-origin and Pi-hole's own `/admin` + `/api` paths work untouched.
+
+> If you kept `lighttpd` on port 80, Pi-hole v6 falls back to port `8080` —
+> set `PIHOLE_URL=http://localhost:8080` accordingly.
 
 ---
 
@@ -105,6 +140,7 @@ Now access the dashboard at `http://your-pi-ip:3000`.
 - JWT-based authentication for both API and Socket connections.
 - Secure password updates stored in environment variables.
 - Isolated shell execution via `node-pty`.
+- The Pi-hole password is held server-side only; the browser never receives it.
 
 ---
 

@@ -25,12 +25,12 @@ class WeatherWidgetPlugin extends BasePlugin {
         res.json({
           success: true,
           data: this.weatherData,
-          location: this.settings.location,
+          location: this.settings.location
         });
       } catch (error) {
         res.status(500).json({
           success: false,
-          error: error.message,
+          error: error.message
         });
       }
       return;
@@ -46,7 +46,7 @@ class WeatherWidgetPlugin extends BasePlugin {
       } catch (error) {
         res.status(500).json({
           success: false,
-          error: error.message,
+          error: error.message
         });
       }
       return;
@@ -88,16 +88,16 @@ class WeatherWidgetPlugin extends BasePlugin {
         pressure: Math.round(1000 + Math.random() * 30),
         visibility: Math.round(8 + Math.random() * 4),
         uvIndex: Math.round(1 + Math.random() * 8),
-        feelsLike: Math.round(15 + Math.random() * 20),
+        feelsLike: Math.round(15 + Math.random() * 20)
       },
       forecast: Array.from({ length: 5 }, (_, i) => ({
         date: new Date(Date.now() + (i + 1) * 24 * 60 * 60 * 1000).toLocaleDateString(),
         high: Math.round(18 + Math.random() * 15),
         low: Math.round(8 + Math.random() * 10),
         condition: conditions[Math.floor(Math.random() * conditions.length)],
-        precipitation: Math.round(Math.random() * 80),
+        precipitation: Math.round(Math.random() * 80)
       })),
-      lastUpdated: new Date().toISOString(),
+      lastUpdated: new Date().toISOString()
     };
   }
 

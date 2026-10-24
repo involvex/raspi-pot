@@ -7,13 +7,13 @@ class SystemMonitorPlugin extends BasePlugin {
       cpu: [],
       memory: [],
       temperature: [],
-      timestamps: [],
+      timestamps: []
     };
     this.maxHistorySize = manifest.settings?.historySize || 100;
     this.alertThresholds = manifest.settings?.alertThresholds || {
       cpu: 80,
       memory: 85,
-      temperature: 70,
+      temperature: 70
     };
     this.lastAlerts = {};
   }
@@ -54,7 +54,7 @@ class SystemMonitorPlugin extends BasePlugin {
         this.history.temperature,
         Math.min(5, this.history.temperature.length)
       ),
-      system_health_score: this.calculateHealthScore(data),
+      system_health_score: this.calculateHealthScore(data)
     };
 
     return enhancedData;
@@ -121,7 +121,7 @@ class SystemMonitorPlugin extends BasePlugin {
       cpu: this.history.cpu,
       memory: this.history.memory,
       temperature: this.history.temperature,
-      timestamps: this.history.timestamps,
+      timestamps: this.history.timestamps
     };
   }
 
@@ -132,11 +132,11 @@ class SystemMonitorPlugin extends BasePlugin {
       currentHealthScore:
         this.history.temperature.length > 0
           ? this.calculateHealthScore({
-              cpu: this.history.cpu[this.history.cpu.length - 1],
-              mem: this.history.memory[this.history.memory.length - 1],
-              temp: this.history.temperature[this.history.temperature.length - 1],
-            })
-          : 100,
+            cpu: this.history.cpu[this.history.cpu.length - 1],
+            mem: this.history.memory[this.history.memory.length - 1],
+            temp: this.history.temperature[this.history.temperature.length - 1]
+          })
+          : 100
     };
   }
 }

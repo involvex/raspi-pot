@@ -1,136 +1,216 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>RaspiPot Dashboard</title>
-    <link rel="stylesheet" href="css/style.css">
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-</head>
-<body>
+    <link rel="stylesheet" href="css/style.css" />
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+  </head>
+  <body>
     <aside>
-        <div class="brand">
-            <span class="material-icons text-primary">memory</span>
-            <div style="display: flex; flex-direction: column;">
-                <span class="name">RaspiPot</span>
-                <span style="font-size: 0.7rem; color: var(--text-muted);">v2.4.1 stable</span>
-            </div>
+      <div class="brand">
+        <span class="material-icons text-primary">memory</span>
+        <div style="display: flex; flex-direction: column">
+          <span class="name">RaspiPot</span>
+          <span style="font-size: 0.7rem; color: var(--text-muted)">v2.4.1 stable</span>
         </div>
-        <nav>
-            <a href="/" class="nav-item active">
-                <span class="material-icons">dashboard</span> Overview
-            </a>
-            <a href="/processes.html" class="nav-item">
-                <span class="material-icons">settings_applications</span> Processes
-            </a>
-            <a href="/services.html" class="nav-item">
-                <span class="material-icons">layers</span> Services
-            </a>
-            <a href="/gpio.html" class="nav-item">
-                <span class="material-icons">settings_input_component</span> GPIO
-            </a>
-            <a href="/network.html" class="nav-item">
-                <span class="material-icons">router</span> Network
-            </a>
-            <a href="/terminal.html" class="nav-item">
-                <span class="material-icons">terminal</span> Terminal
-            </a>
-            <a href="/files.html" class="nav-item">
-                <span class="material-icons">folder</span> Explorer
-            </a>
-            <a href="/scripts.html" class="nav-item">
-                <span class="material-icons">play_circle</span> Scripts
-            </a>
-            <a href="/settings.html" class="nav-item">
-                <span class="material-icons">settings</span> Settings
-            </a>
-        </nav>
-        <div style="padding: 1rem; border-top: 1px solid var(--border);">
-            <button id="logoutBtn" style="width: 100%; background: var(--bg-dark); border: 1px solid var(--border); color: var(--text-muted); padding: 0.5rem; border-radius: 0.5rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
-                <span class="material-icons" style="font-size: 1rem;">logout</span> Logout
-            </button>
-        </div>
+      </div>
+      <nav>
+        <a href="/" class="nav-item active">
+          <span class="material-icons">dashboard</span> Overview
+        </a>
+        <a href="/processes.html" class="nav-item">
+          <span class="material-icons">settings_applications</span> Processes
+        </a>
+        <a href="/services.html" class="nav-item">
+          <span class="material-icons">layers</span> Services
+        </a>
+        <a href="/pihole.html" class="nav-item">
+          <span class="material-icons">security</span> Pi-hole
+        </a>
+        <a href="/gpio.html" class="nav-item">
+          <span class="material-icons">settings_input_component</span> GPIO
+        </a>
+        <a href="/network.html" class="nav-item">
+          <span class="material-icons">router</span> Network
+        </a>
+        <a href="/terminal.html" class="nav-item">
+          <span class="material-icons">terminal</span> Terminal
+        </a>
+        <a href="/files.html" class="nav-item">
+          <span class="material-icons">folder</span> Explorer
+        </a>
+        <a href="/scripts.html" class="nav-item">
+          <span class="material-icons">play_circle</span> Scripts
+        </a>
+        <a href="/settings.html" class="nav-item">
+          <span class="material-icons">settings</span> Settings
+        </a>
+      </nav>
+      <div style="padding: 1rem; border-top: 1px solid var(--border)">
+        <button
+          id="logoutBtn"
+          style="
+            width: 100%;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+          "
+        >
+          <span class="material-icons" style="font-size: 1rem">logout</span> Logout
+        </button>
+      </div>
     </aside>
 
     <main>
-        <header>
-            <div class="welcome">
-                <h1>System Overview</h1>
-                <div class="status-pill" style="margin-top: 1rem;">
-                    <span class="dot pulse"></span>
-                    <span class="status-text">Online</span>
-                    <div id="ipList" class="ip-list">
-                        <span class="ip-tag disconnected">Connecting...</span>
-                    </div>
-                </div>
+      <header>
+        <div class="welcome">
+          <h1>System Overview</h1>
+          <div class="status-pill" style="margin-top: 1rem">
+            <span class="dot pulse"></span>
+            <span class="status-text">Online</span>
+            <div id="ipList" class="ip-list">
+              <span class="ip-tag disconnected">Connecting...</span>
             </div>
-            <div id="connectionStatus" style="font-size: 0.8rem; color: var(--text-muted); background: var(--bg-card); padding: 0.5rem 1rem; border-radius: 0.5rem; border: 1px solid var(--border);">
-                <span class="material-icons" style="font-size: 1rem;">sync</span> Socket: Connecting...
-            </div>
-        </header>
+          </div>
+        </div>
+        <div
+          id="connectionStatus"
+          style="
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            background: var(--bg-card);
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            border: 1px solid var(--border);
+          "
+        >
+          <span class="material-icons" style="font-size: 1rem">sync</span> Socket: Connecting...
+        </div>
+      </header>
 
-        <div class="grid">
-            <div class="card">
-                <div class="card-header">CPU Load <span class="material-icons">developer_board</span></div>
-                <div class="card-value"><span id="cpuVal">0</span><span class="unit">%</span></div>
-                <div class="progress-container"><div id="cpuBar" class="progress-bar" style="width: 0%"></div></div>
-                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 1rem; display: flex; justify-content: space-between;">
-                    <span>Model: BCM2836</span>
-                    <span>Cores: 4x 900MHz</span>
-                </div>
-            </div>
-
-            <div class="card">
-                <div class="card-header">RAM Usage <span class="material-icons">memory</span></div>
-                <div class="card-value"><span id="memVal">0</span><span class="unit">%</span></div>
-                <div class="progress-container"><div id="memBar" class="progress-bar" style="width: 0%; background-color: var(--success)"></div></div>
-                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 1rem; display: flex; justify-content: space-between;">
-                    <span>Total: <span id="memTotal">0.0 GB</span></span>
-                    <span>Used: <span id="memUsed">0.0 GB</span></span>
-                </div>
-            </div>
-
-            <div class="card">
-                <div class="card-header">SoC Temperature <span class="material-icons">thermostat</span></div>
-                <div class="card-value"><span id="tempVal">0</span><span class="unit">°C</span></div>
-                <div id="tempStatus" style="font-size: 0.8rem; margin-top: 0.5rem; font-weight: bold;" class="text-success">Optimal</div>
-                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 1.5rem;">
-                    Hardware Limit: 85°C
-                </div>
-            </div>
-
-            <div class="card">
-                <div class="card-header">Disk Space <span class="material-icons">sd_storage</span></div>
-                <div class="card-value"><span id="diskVal">0</span><span class="unit">%</span></div>
-                <div class="progress-container"><div id="diskBar" class="progress-bar" style="width: 0%; background-color: var(--warning)"></div></div>
-                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 1rem;">
-                    Root Partition (/)
-                </div>
-            </div>
+      <div class="grid">
+        <div class="card">
+          <div class="card-header">
+            CPU Load <span class="material-icons">developer_board</span>
+          </div>
+          <div class="card-value"><span id="cpuVal">0</span><span class="unit">%</span></div>
+          <div class="progress-container">
+            <div id="cpuBar" class="progress-bar" style="width: 0%"></div>
+          </div>
+          <div
+            style="
+              font-size: 0.75rem;
+              color: var(--text-muted);
+              margin-top: 1rem;
+              display: flex;
+              justify-content: space-between;
+            "
+          >
+            <span>Model: BCM2836</span>
+            <span>Cores: 4x 900MHz</span>
+          </div>
         </div>
 
-        <section style="margin-top: 2.5rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
-            <div class="card">
-                <div class="card-header">System Uptime <span class="material-icons">schedule</span></div>
-                <div id="uptimeVal" style="font-size: 1.5rem; font-weight: bold; margin-top: 0.5rem;">0d 00:00:00</div>
+        <div class="card">
+          <div class="card-header">RAM Usage <span class="material-icons">memory</span></div>
+          <div class="card-value"><span id="memVal">0</span><span class="unit">%</span></div>
+          <div class="progress-container">
+            <div
+              id="memBar"
+              class="progress-bar"
+              style="width: 0%; background-color: var(--success)"
+            ></div>
+          </div>
+          <div
+            style="
+              font-size: 0.75rem;
+              color: var(--text-muted);
+              margin-top: 1rem;
+              display: flex;
+              justify-content: space-between;
+            "
+          >
+            <span>Total: <span id="memTotal">0.0 GB</span></span>
+            <span>Used: <span id="memUsed">0.0 GB</span></span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            SoC Temperature <span class="material-icons">thermostat</span>
+          </div>
+          <div class="card-value"><span id="tempVal">0</span><span class="unit">°C</span></div>
+          <div
+            id="tempStatus"
+            style="font-size: 0.8rem; margin-top: 0.5rem; font-weight: bold"
+            class="text-success"
+          >
+            Optimal
+          </div>
+          <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 1.5rem">
+            Hardware Limit: 85°C
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">Disk Space <span class="material-icons">sd_storage</span></div>
+          <div class="card-value"><span id="diskVal">0</span><span class="unit">%</span></div>
+          <div class="progress-container">
+            <div
+              id="diskBar"
+              class="progress-bar"
+              style="width: 0%; background-color: var(--warning)"
+            ></div>
+          </div>
+          <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 1rem">
+            Root Partition (/)
+          </div>
+        </div>
+      </div>
+
+      <section
+        style="margin-top: 2.5rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem"
+      >
+        <div class="card">
+          <div class="card-header">System Uptime <span class="material-icons">schedule</span></div>
+          <div id="uptimeVal" style="font-size: 1.5rem; font-weight: bold; margin-top: 0.5rem">
+            0d 00:00:00
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">Network Activity <span class="material-icons">lan</span></div>
+          <div style="display: flex; gap: 2rem; margin-top: 0.5rem">
+            <div>
+              <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase">
+                Download
+              </div>
+              <div id="netDown" style="font-weight: bold; font-size: 1.2rem; color: var(--primary)">
+                0.0 MB/s
+              </div>
             </div>
-            <div class="card">
-                <div class="card-header">Network Activity <span class="material-icons">lan</span></div>
-                <div style="display: flex; gap: 2rem; margin-top: 0.5rem;">
-                    <div>
-                        <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Download</div>
-                        <div id="netDown" style="font-weight: bold; font-size: 1.2rem; color: var(--primary);">0.0 MB/s</div>
-                    </div>
-                    <div>
-                        <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Upload</div>
-                        <div id="netUp" style="font-weight: bold; font-size: 1.2rem; color: var(--success);">0.0 MB/s</div>
-                    </div>
-                </div>
+            <div>
+              <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase">
+                Upload
+              </div>
+              <div id="netUp" style="font-weight: bold; font-size: 1.2rem; color: var(--success)">
+                0.0 MB/s
+              </div>
             </div>
-        </section>
+          </div>
+        </div>
+      </section>
     </main>
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="js/app.js"></script>
-</body>
+  </body>
 </html>

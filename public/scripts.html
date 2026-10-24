@@ -1,145 +1,238 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Scripts - RaspiPot</title>
-    <link rel="stylesheet" href="css/style.css">
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css" />
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
     <style>
-        .script-layout { display: grid; grid-template-columns: 350px 1fr; gap: 2rem; flex: 1; min-height: 0; }
-        .console { background: #0a0f1a; border: 1px solid var(--border); border-radius: 1rem; flex: 1; padding: 1.5rem; font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; color: #cbd5e1; overflow-y: auto; white-space: pre-wrap; }
-        .quick-btn { background: var(--bg-card); border: 1px solid var(--border); color: white; padding: 1rem; border-radius: 0.75rem; text-align: left; cursor: pointer; margin-bottom: 0.75rem; width: 100%; display: flex; flex-direction: column; gap: 0.25rem; }
-        .quick-btn:hover { border-color: var(--primary); background: var(--border); }
-        .quick-btn code { font-size: 0.7rem; color: var(--text-muted); }
-        main { display: flex; flex-direction: column; height: 100vh; box-sizing: border-box; }
-        .input-area { display: flex; gap: 1rem; margin-bottom: 1.5rem; }
-        .input-area input { flex: 1; background: var(--bg-card); border: 1px solid var(--border); color: white; padding: 0.75rem; border-radius: 0.5rem; outline: none; font-family: monospace; }
-        .btn-run { background: var(--primary); color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 0.5rem; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 0.5rem; }
-        .presets-list { overflow-y: auto; max-height: calc(100vh - 300px); padding-right: 0.5rem; }
+      .script-layout {
+        display: grid;
+        grid-template-columns: 350px 1fr;
+        gap: 2rem;
+        flex: 1;
+        min-height: 0;
+      }
+      .console {
+        background: #0a0f1a;
+        border: 1px solid var(--border);
+        border-radius: 1rem;
+        flex: 1;
+        padding: 1.5rem;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.9rem;
+        color: #cbd5e1;
+        overflow-y: auto;
+        white-space: pre-wrap;
+      }
+      .quick-btn {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        color: white;
+        padding: 1rem;
+        border-radius: 0.75rem;
+        text-align: left;
+        cursor: pointer;
+        margin-bottom: 0.75rem;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+      }
+      .quick-btn:hover {
+        border-color: var(--primary);
+        background: var(--border);
+      }
+      .quick-btn code {
+        font-size: 0.7rem;
+        color: var(--text-muted);
+      }
+      main {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        box-sizing: border-box;
+      }
+      .input-area {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+      }
+      .input-area input {
+        flex: 1;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        color: white;
+        padding: 0.75rem;
+        border-radius: 0.5rem;
+        outline: none;
+        font-family: monospace;
+      }
+      .btn-run {
+        background: var(--primary);
+        color: white;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 0.5rem;
+        cursor: pointer;
+        font-weight: bold;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      .presets-list {
+        overflow-y: auto;
+        max-height: calc(100vh - 300px);
+        padding-right: 0.5rem;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <aside>
-        <div class="brand">
-            <span class="material-icons text-primary">memory</span>
-            <div style="display: flex; flex-direction: column;">
-                <span class="name">RaspiPot</span>
-                <span style="font-size: 0.7rem; color: var(--text-muted);">v2.4.1 stable</span>
-            </div>
+      <div class="brand">
+        <span class="material-icons text-primary">memory</span>
+        <div style="display: flex; flex-direction: column">
+          <span class="name">RaspiPot</span>
+          <span style="font-size: 0.7rem; color: var(--text-muted)">v2.4.1 stable</span>
         </div>
-        <nav>
-            <a href="/" class="nav-item"><span class="material-icons">dashboard</span> Overview</a>
-            <a href="/processes.html" class="nav-item"><span class="material-icons">settings_applications</span> Processes</a>
-            <a href="/services.html" class="nav-item"><span class="material-icons">layers</span> Services</a>
-            <a href="/gpio.html" class="nav-item"><span class="material-icons">settings_input_component</span> GPIO</a>
-            <a href="/network.html" class="nav-item"><span class="material-icons">router</span> Network</a>
-            <a href="/terminal.html" class="nav-item"><span class="material-icons">terminal</span> Terminal</a>
-            <a href="/files.html" class="nav-item"><span class="material-icons">folder</span> Explorer</a>
-            <a href="/scripts.html" class="nav-item active"><span class="material-icons">play_circle</span> Scripts</a>
-            <a href="/settings.html" class="nav-item"><span class="material-icons">settings</span> Settings</a>
-        </nav>
+      </div>
+      <nav>
+        <a href="/" class="nav-item"><span class="material-icons">dashboard</span> Overview</a>
+        <a href="/processes.html" class="nav-item"
+          ><span class="material-icons">settings_applications</span> Processes</a
+        >
+        <a href="/services.html" class="nav-item"
+          ><span class="material-icons">layers</span> Services</a
+        >
+        <a href="/pihole.html" class="nav-item"
+          ><span class="material-icons">security</span> Pi-hole</a
+        >
+        <a href="/gpio.html" class="nav-item"
+          ><span class="material-icons">settings_input_component</span> GPIO</a
+        >
+        <a href="/network.html" class="nav-item"
+          ><span class="material-icons">router</span> Network</a
+        >
+        <a href="/terminal.html" class="nav-item"
+          ><span class="material-icons">terminal</span> Terminal</a
+        >
+        <a href="/files.html" class="nav-item"
+          ><span class="material-icons">folder</span> Explorer</a
+        >
+        <a href="/scripts.html" class="nav-item active"
+          ><span class="material-icons">play_circle</span> Scripts</a
+        >
+        <a href="/settings.html" class="nav-item"
+          ><span class="material-icons">settings</span> Settings</a
+        >
+      </nav>
     </aside>
 
     <main>
-        <header><h1>Script Runner</h1></header>
+      <header><h1>Script Runner</h1></header>
 
-        <div class="input-area">
-            <input type="text" id="cmdInput" placeholder="Enter shell command...">
-            <button class="btn-run" id="runBtn" onclick="runCmd()">
-                <span class="material-icons">play_arrow</span> Run
+      <div class="input-area">
+        <input type="text" id="cmdInput" placeholder="Enter shell command..." />
+        <button class="btn-run" id="runBtn" onclick="runCmd()">
+          <span class="material-icons">play_arrow</span> Run
+        </button>
+      </div>
+
+      <div class="script-layout">
+        <div>
+          <h3>Quick Actions</h3>
+          <div class="presets-list">
+            <button class="quick-btn" onclick="setCmd('sudo apt update')">
+              <span>Update Package List</span>
+              <code>sudo apt update</code>
             </button>
+            <button class="quick-btn" onclick="setCmd('sudo apt upgrade -y')">
+              <span>Upgrade All Packages</span>
+              <code>sudo apt upgrade -y</code>
+            </button>
+            <button class="quick-btn" onclick="setCmd('vcgencmd measure_temp')">
+              <span>Check SoC Temp</span>
+              <code>vcgencmd measure_temp</code>
+            </button>
+            <button class="quick-btn" onclick="setCmd('vcgencmd get_config arm_freq')">
+              <span>Check CPU Frequency</span>
+              <code>vcgencmd get_config arm_freq</code>
+            </button>
+            <button class="quick-btn" onclick="setCmd('df -h')">
+              <span>Disk Usage</span>
+              <code>df -h</code>
+            </button>
+            <button class="quick-btn" onclick="setCmd('free -m')">
+              <span>Memory Info (MB)</span>
+              <code>free -m</code>
+            </button>
+            <button class="quick-btn" onclick="setCmd('lsusb')">
+              <span>List USB Devices</span>
+              <code>lsusb</code>
+            </button>
+            <button class="quick-btn" onclick="setCmd('ip addr')">
+              <span>Detailed IP Addr</span>
+              <code>ip addr</code>
+            </button>
+            <button class="quick-btn" onclick="setCmd('sudo journalctl -p err..alert')">
+              <span>Show System Errors</span>
+              <code>sudo journalctl -p err..alert</code>
+            </button>
+            <button class="quick-btn" onclick="setCmd('sudo systemctl restart raspipot')">
+              <span>Restart Dashboard (Systemd)</span>
+              <code>sudo systemctl restart raspipot</code>
+            </button>
+            <button class="quick-btn" onclick="setCmd('npm run serve')">
+              <span>Start Background (PM2)</span>
+              <code>npm run serve</code>
+            </button>
+            <button class="quick-btn" onclick="setCmd('pm2 restart raspipot')">
+              <span>Restart Background (PM2)</span>
+              <code>pm2 restart raspipot</code>
+            </button>
+            <button
+              class="quick-btn"
+              onclick="setCmd('pm2 logs raspipot --lines 50 --no-gradient')"
+            >
+              <span>View Logs (PM2)</span>
+              <code>pm2 logs raspipot</code>
+            </button>
+          </div>
         </div>
-
-        <div class="script-layout">
-            <div>
-                <h3>Quick Actions</h3>
-                <div class="presets-list">
-                    <button class="quick-btn" onclick="setCmd('sudo apt update')">
-                        <span>Update Package List</span>
-                        <code>sudo apt update</code>
-                    </button>
-                    <button class="quick-btn" onclick="setCmd('sudo apt upgrade -y')">
-                        <span>Upgrade All Packages</span>
-                        <code>sudo apt upgrade -y</code>
-                    </button>
-                    <button class="quick-btn" onclick="setCmd('vcgencmd measure_temp')">
-                        <span>Check SoC Temp</span>
-                        <code>vcgencmd measure_temp</code>
-                    </button>
-                    <button class="quick-btn" onclick="setCmd('vcgencmd get_config arm_freq')">
-                        <span>Check CPU Frequency</span>
-                        <code>vcgencmd get_config arm_freq</code>
-                    </button>
-                    <button class="quick-btn" onclick="setCmd('df -h')">
-                        <span>Disk Usage</span>
-                        <code>df -h</code>
-                    </button>
-                    <button class="quick-btn" onclick="setCmd('free -m')">
-                        <span>Memory Info (MB)</span>
-                        <code>free -m</code>
-                    </button>
-                    <button class="quick-btn" onclick="setCmd('lsusb')">
-                        <span>List USB Devices</span>
-                        <code>lsusb</code>
-                    </button>
-                    <button class="quick-btn" onclick="setCmd('ip addr')">
-                        <span>Detailed IP Addr</span>
-                        <code>ip addr</code>
-                    </button>
-                    <button class="quick-btn" onclick="setCmd('sudo journalctl -p err..alert')">
-                        <span>Show System Errors</span>
-                        <code>sudo journalctl -p err..alert</code>
-                    </button>
-                    <button class="quick-btn" onclick="setCmd('sudo systemctl restart raspipot')">
-                        <span>Restart Dashboard (Systemd)</span>
-                        <code>sudo systemctl restart raspipot</code>
-                    </button>
-                    <button class="quick-btn" onclick="setCmd('npm run serve')">
-                        <span>Start Background (PM2)</span>
-                        <code>npm run serve</code>
-                    </button>
-                    <button class="quick-btn" onclick="setCmd('pm2 restart raspipot')">
-                        <span>Restart Background (PM2)</span>
-                        <code>pm2 restart raspipot</code>
-                    </button>
-                    <button class="quick-btn" onclick="setCmd('pm2 logs raspipot --lines 50 --no-gradient')">
-                        <span>View Logs (PM2)</span>
-                        <code>pm2 logs raspipot</code>
-                    </button>
-                </div>
-            </div>
-            <div class="console" id="output">Waiting for command...</div>
-        </div>
+        <div class="console" id="output">Waiting for command...</div>
+      </div>
     </main>
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="js/app.js"></script>
     <script>
-        const out = document.getElementById('output');
-        const runBtn = document.getElementById('runBtn');
+      const out = document.getElementById('output');
+      const runBtn = document.getElementById('runBtn');
 
-        socket.on('scripts:output', (data) => {
-            if (out.textContent === 'Waiting for command...') out.textContent = '';
-            out.textContent += data;
-            out.scrollTop = out.scrollHeight;
-        });
+      socket.on('scripts:output', data => {
+        if (out.textContent === 'Waiting for command...') out.textContent = '';
+        out.textContent += data;
+        out.scrollTop = out.scrollHeight;
+      });
 
-        socket.on('scripts:finished', () => {
-            runBtn.disabled = false;
-            runBtn.innerHTML = '<span class="material-icons">play_arrow</span> Run';
-        });
+      socket.on('scripts:finished', () => {
+        runBtn.disabled = false;
+        runBtn.innerHTML = '<span class="material-icons">play_arrow</span> Run';
+      });
 
-        function setCmd(cmd) { document.getElementById('cmdInput').value = cmd; }
+      function setCmd(cmd) {
+        document.getElementById('cmdInput').value = cmd;
+      }
 
-        function runCmd() {
-            const cmd = document.getElementById('cmdInput').value;
-            if (!cmd) return;
-            out.textContent = `> ${cmd}\n`;
-            runBtn.disabled = true;
-            runBtn.innerHTML = '<span class="material-icons spinning">sync</span> Running...';
-            socket.emit('scripts:run', cmd);
-        }
+      function runCmd() {
+        const cmd = document.getElementById('cmdInput').value;
+        if (!cmd) return;
+        out.textContent = `> ${cmd}\n`;
+        runBtn.disabled = true;
+        runBtn.innerHTML = '<span class="material-icons spinning">sync</span> Running...';
+        socket.emit('scripts:run', cmd);
+      }
     </script>
-</body>
+  </body>
 </html>

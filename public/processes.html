@@ -1,118 +1,185 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Processes - RaspiPot</title>
-    <link rel="stylesheet" href="css/style.css">
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css" />
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
     <style>
-        table { width: 100%; border-collapse: collapse; background: var(--bg-card); border-radius: 1rem; overflow: hidden; }
-        th, td { padding: 1rem; text-align: left; border-bottom: 1px solid var(--border); }
-        th { background: var(--bg-header); color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase; cursor: pointer; user-select: none; }
-        th:hover { color: var(--primary); }
-        .btn-kill { background: rgba(239, 71, 111, 0.1); color: var(--danger); border: none; padding: 0.4rem 0.8rem; border-radius: 0.4rem; cursor: pointer; font-weight: bold; }
-        .btn-kill:hover { background: var(--danger); color: white; }
-        .sort-icon { font-size: 1rem; vertical-align: middle; margin-left: 0.25rem; }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background: var(--bg-card);
+        border-radius: 1rem;
+        overflow: hidden;
+      }
+      th,
+      td {
+        padding: 1rem;
+        text-align: left;
+        border-bottom: 1px solid var(--border);
+      }
+      th {
+        background: var(--bg-header);
+        color: var(--text-muted);
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        cursor: pointer;
+        user-select: none;
+      }
+      th:hover {
+        color: var(--primary);
+      }
+      .btn-kill {
+        background: rgba(239, 71, 111, 0.1);
+        color: var(--danger);
+        border: none;
+        padding: 0.4rem 0.8rem;
+        border-radius: 0.4rem;
+        cursor: pointer;
+        font-weight: bold;
+      }
+      .btn-kill:hover {
+        background: var(--danger);
+        color: white;
+      }
+      .sort-icon {
+        font-size: 1rem;
+        vertical-align: middle;
+        margin-left: 0.25rem;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <aside>
-        <div class="brand">
-            <span class="material-icons text-primary">memory</span>
-            <span class="name">RaspiPot</span>
-        </div>
-        <nav>
-            <a href="/" class="nav-item"><span class="material-icons">dashboard</span> Overview</a>
-            <a href="/processes.html" class="nav-item active"><span class="material-icons">settings_applications</span> Processes</a>
-            <a href="/services.html" class="nav-item"><span class="material-icons">layers</span> Services</a>
-            <a href="/gpio.html" class="nav-item"><span class="material-icons">settings_input_component</span> GPIO</a>
-            <a href="/network.html" class="nav-item"><span class="material-icons">router</span> Network</a>
-            <a href="/terminal.html" class="nav-item"><span class="material-icons">terminal</span> Terminal</a>
-            <a href="/files.html" class="nav-item"><span class="material-icons">folder</span> Explorer</a>
-            <a href="/settings.html" class="nav-item"><span class="material-icons">settings</span> Settings</a>
-        </nav>
+      <div class="brand">
+        <span class="material-icons text-primary">memory</span>
+        <span class="name">RaspiPot</span>
+      </div>
+      <nav>
+        <a href="/" class="nav-item"><span class="material-icons">dashboard</span> Overview</a>
+        <a href="/processes.html" class="nav-item active"
+          ><span class="material-icons">settings_applications</span> Processes</a
+        >
+        <a href="/services.html" class="nav-item"
+          ><span class="material-icons">layers</span> Services</a
+        >
+        <a href="/pihole.html" class="nav-item"
+          ><span class="material-icons">security</span> Pi-hole</a
+        >
+        <a href="/gpio.html" class="nav-item"
+          ><span class="material-icons">settings_input_component</span> GPIO</a
+        >
+        <a href="/network.html" class="nav-item"
+          ><span class="material-icons">router</span> Network</a
+        >
+        <a href="/terminal.html" class="nav-item"
+          ><span class="material-icons">terminal</span> Terminal</a
+        >
+        <a href="/files.html" class="nav-item"
+          ><span class="material-icons">folder</span> Explorer</a
+        >
+        <a href="/settings.html" class="nav-item"
+          ><span class="material-icons">settings</span> Settings</a
+        >
+      </nav>
     </aside>
 
     <main>
-        <header>
-            <h1>Process Manager</h1>
-            <div id="connectionStatus" style="font-size: 0.8rem; color: var(--text-muted);">
-                <span class="material-icons" style="font-size: 1rem;">sync</span> Connecting...
-            </div>
-        </header>
-
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th onclick="toggleSort('pid')">PID <span id="sort_pid" class="sort-icon"></span></th>
-                        <th onclick="toggleSort('name')">Name <span id="sort_name" class="sort-icon"></span></th>
-                        <th onclick="toggleSort('cpu')">CPU % <span id="sort_cpu" class="sort-icon"></span></th>
-                        <th onclick="toggleSort('mem')">Mem % <span id="sort_mem" class="sort-icon"></span></th>
-                        <th onclick="toggleSort('user')">User <span id="sort_user" class="sort-icon"></span></th>
-                        <th style="cursor: default;">Action</th>
-                    </tr>
-                </thead>
-                <tbody id="processTable">
-                    <tr><td colspan="6" style="text-align: center; padding: 3rem;">Waiting for process data...</td></tr>
-                </tbody>
-            </table>
+      <header>
+        <h1>Process Manager</h1>
+        <div id="connectionStatus" style="font-size: 0.8rem; color: var(--text-muted)">
+          <span class="material-icons" style="font-size: 1rem">sync</span> Connecting...
         </div>
+      </header>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th onclick="toggleSort('pid')">PID <span id="sort_pid" class="sort-icon"></span></th>
+              <th onclick="toggleSort('name')">
+                Name <span id="sort_name" class="sort-icon"></span>
+              </th>
+              <th onclick="toggleSort('cpu')">
+                CPU % <span id="sort_cpu" class="sort-icon"></span>
+              </th>
+              <th onclick="toggleSort('mem')">
+                Mem % <span id="sort_mem" class="sort-icon"></span>
+              </th>
+              <th onclick="toggleSort('user')">
+                User <span id="sort_user" class="sort-icon"></span>
+              </th>
+              <th style="cursor: default">Action</th>
+            </tr>
+          </thead>
+          <tbody id="processTable">
+            <tr>
+              <td colspan="6" style="text-align: center; padding: 3rem">
+                Waiting for process data...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </main>
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="js/app.js"></script>
     <script>
-        const table = document.getElementById('processTable');
-        let currentData = [];
-        let sortKey = 'cpu';
-        let sortOrder = -1; // -1 for desc, 1 for asc
+      const table = document.getElementById('processTable');
+      let currentData = [];
+      let sortKey = 'cpu';
+      let sortOrder = -1; // -1 for desc, 1 for asc
 
-        socket.on('connect', () => {
-            socket.emit('processes:watch', 5000);
-        });
+      socket.on('connect', () => {
+        socket.emit('processes:watch', 5000);
+      });
 
-        socket.on('processes:data', (data) => {
-            currentData = data;
-            renderTable();
-        });
+      socket.on('processes:data', data => {
+        currentData = data;
+        renderTable();
+      });
 
-        function toggleSort(key) {
-            if (sortKey === key) {
-                sortOrder *= -1;
-            } else {
-                sortKey = key;
-                sortOrder = -1;
-            }
-            renderTable();
+      function toggleSort(key) {
+        if (sortKey === key) {
+          sortOrder *= -1;
+        } else {
+          sortKey = key;
+          sortOrder = -1;
         }
+        renderTable();
+      }
 
-        function renderTable() {
-            // Update sort icons
-            ['pid', 'name', 'cpu', 'mem', 'user'].forEach(k => {
-                const el = document.getElementById('sort_' + k);
-                if (k === sortKey) {
-                    el.innerHTML = sortOrder === 1 ? 'arrow_drop_up' : 'arrow_drop_down';
-                    el.style.color = 'var(--primary)';
-                } else {
-                    el.innerHTML = '';
-                }
-            });
+      function renderTable() {
+        // Update sort icons
+        ['pid', 'name', 'cpu', 'mem', 'user'].forEach(k => {
+          const el = document.getElementById('sort_' + k);
+          if (k === sortKey) {
+            el.innerHTML = sortOrder === 1 ? 'arrow_drop_up' : 'arrow_drop_down';
+            el.style.color = 'var(--primary)';
+          } else {
+            el.innerHTML = '';
+          }
+        });
 
-            const sorted = [...currentData].sort((a, b) => {
-                let vA = a[sortKey];
-                let vB = b[sortKey];
-                if (typeof vA === 'string') {
-                    vA = vA.toLowerCase();
-                    vB = vB.toLowerCase();
-                }
-                if (vA < vB) return -1 * sortOrder;
-                if (vA > vB) return 1 * sortOrder;
-                return 0;
-            });
+        const sorted = [...currentData].sort((a, b) => {
+          let vA = a[sortKey];
+          let vB = b[sortKey];
+          if (typeof vA === 'string') {
+            vA = vA.toLowerCase();
+            vB = vB.toLowerCase();
+          }
+          if (vA < vB) return -1 * sortOrder;
+          if (vA > vB) return 1 * sortOrder;
+          return 0;
+        });
 
-            table.innerHTML = sorted.map(p => `
+        table.innerHTML =
+          sorted
+            .map(
+              p => `
                 <tr>
                     <td style="font-family: monospace; color: var(--text-muted);">#${p.pid}</td>
                     <td style="font-weight: bold;">${p.name}</td>
@@ -121,14 +188,17 @@
                     <td>${p.user}</td>
                     <td><button class="btn-kill" onclick="killProcess(${p.pid})">Kill</button></td>
                 </tr>
-            `).join('') || '<tr><td colspan="6" style="text-align: center;">No processes found</td></tr>';
-        }
+            `
+            )
+            .join('') ||
+          '<tr><td colspan="6" style="text-align: center;">No processes found</td></tr>';
+      }
 
-        function killProcess(pid) {
-            if (confirm(`Kill process ${pid}?`)) {
-                socket.emit('process:kill', pid);
-            }
+      function killProcess(pid) {
+        if (confirm(`Kill process ${pid}?`)) {
+          socket.emit('process:kill', pid);
         }
+      }
     </script>
-</body>
+  </body>
 </html>

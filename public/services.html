@@ -1,100 +1,185 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Services - RaspiPot</title>
-    <link rel="stylesheet" href="css/style.css">
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css" />
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
     <style>
-        table { width: 100%; border-collapse: collapse; background: var(--bg-card); border-radius: 1rem; overflow: hidden; }
-        th, td { padding: 1rem; text-align: left; border-bottom: 1px solid var(--border); }
-        th { background: var(--bg-header); color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase; }
-        .status-badge { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; background: var(--border); color: var(--text-muted); text-transform: uppercase; }
-        .status-badge.active { background: rgba(6, 214, 160, 0.1); color: var(--success); }
-        .btn-group { display: flex; gap: 0.5rem; justify-content: flex-end; }
-        .btn-action { background: var(--border); color: var(--text-main); border: none; padding: 0.4rem 0.8rem; border-radius: 0.4rem; cursor: pointer; font-size: 0.8rem; }
-        .btn-action:hover { background: var(--primary); color: white; }
-        .search-box { margin-bottom: 1.5rem; width: 100%; max-width: 400px; position: relative; }
-        .search-box input { width: 100%; padding: 0.75rem 1rem 0.75rem 2.5rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 0.5rem; color: white; box-sizing: border-box; }
-        .search-box .material-icons { position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background: var(--bg-card);
+        border-radius: 1rem;
+        overflow: hidden;
+      }
+      th,
+      td {
+        padding: 1rem;
+        text-align: left;
+        border-bottom: 1px solid var(--border);
+      }
+      th {
+        background: var(--bg-header);
+        color: var(--text-muted);
+        font-size: 0.8rem;
+        text-transform: uppercase;
+      }
+      .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        background: var(--border);
+        color: var(--text-muted);
+        text-transform: uppercase;
+      }
+      .status-badge.active {
+        background: rgba(6, 214, 160, 0.1);
+        color: var(--success);
+      }
+      .btn-group {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: flex-end;
+      }
+      .btn-action {
+        background: var(--border);
+        color: var(--text-main);
+        border: none;
+        padding: 0.4rem 0.8rem;
+        border-radius: 0.4rem;
+        cursor: pointer;
+        font-size: 0.8rem;
+      }
+      .btn-action:hover {
+        background: var(--primary);
+        color: white;
+      }
+      .search-box {
+        margin-bottom: 1.5rem;
+        width: 100%;
+        max-width: 400px;
+        position: relative;
+      }
+      .search-box input {
+        width: 100%;
+        padding: 0.75rem 1rem 0.75rem 2.5rem;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 0.5rem;
+        color: white;
+        box-sizing: border-box;
+      }
+      .search-box .material-icons {
+        position: absolute;
+        left: 0.75rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted);
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <aside>
-        <div class="brand">
-            <span class="material-icons text-primary">memory</span>
-            <span class="name">RaspiPot</span>
-        </div>
-        <nav>
-            <a href="/" class="nav-item"><span class="material-icons">dashboard</span> Overview</a>
-            <a href="/processes.html" class="nav-item"><span class="material-icons">settings_applications</span> Processes</a>
-            <a href="/services.html" class="nav-item active"><span class="material-icons">layers</span> Services</a>
-            <a href="/gpio.html" class="nav-item"><span class="material-icons">settings_input_component</span> GPIO</a>
-            <a href="/network.html" class="nav-item"><span class="material-icons">router</span> Network</a>
-            <a href="/terminal.html" class="nav-item"><span class="material-icons">terminal</span> Terminal</a>
-            <a href="/files.html" class="nav-item"><span class="material-icons">folder</span> Explorer</a>
-            <a href="/settings.html" class="nav-item"><span class="material-icons">settings</span> Settings</a>
-        </nav>
+      <div class="brand">
+        <span class="material-icons text-primary">memory</span>
+        <span class="name">RaspiPot</span>
+      </div>
+      <nav>
+        <a href="/" class="nav-item"><span class="material-icons">dashboard</span> Overview</a>
+        <a href="/processes.html" class="nav-item"
+          ><span class="material-icons">settings_applications</span> Processes</a
+        >
+        <a href="/services.html" class="nav-item active"
+          ><span class="material-icons">layers</span> Services</a
+        >
+        <a href="/pihole.html" class="nav-item"
+          ><span class="material-icons">security</span> Pi-hole</a
+        >
+        <a href="/gpio.html" class="nav-item"
+          ><span class="material-icons">settings_input_component</span> GPIO</a
+        >
+        <a href="/network.html" class="nav-item"
+          ><span class="material-icons">router</span> Network</a
+        >
+        <a href="/terminal.html" class="nav-item"
+          ><span class="material-icons">terminal</span> Terminal</a
+        >
+        <a href="/files.html" class="nav-item"
+          ><span class="material-icons">folder</span> Explorer</a
+        >
+        <a href="/settings.html" class="nav-item"
+          ><span class="material-icons">settings</span> Settings</a
+        >
+      </nav>
     </aside>
 
     <main>
-        <header>
-            <h1>System Services</h1>
-            <div id="connectionStatus" style="font-size: 0.8rem; color: var(--text-muted);">
-                <span class="material-icons" style="font-size: 1rem;">sync</span> Connecting...
-            </div>
-        </header>
-
-        <div class="search-box">
-            <span class="material-icons">search</span>
-            <input type="text" id="serviceSearch" placeholder="Filter services...">
+      <header>
+        <h1>System Services</h1>
+        <div id="connectionStatus" style="font-size: 0.8rem; color: var(--text-muted)">
+          <span class="material-icons" style="font-size: 1rem">sync</span> Connecting...
         </div>
+      </header>
 
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Service Name</th>
-                        <th>Status</th>
-                        <th>Description</th>
-                        <th style="text-align: right;">Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="serviceTable">
-                    <!-- Data will be injected here -->
-                </tbody>
-            </table>
-        </div>
+      <div class="search-box">
+        <span class="material-icons">search</span>
+        <input type="text" id="serviceSearch" placeholder="Filter services..." />
+      </div>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Service Name</th>
+              <th>Status</th>
+              <th>Description</th>
+              <th style="text-align: right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="serviceTable">
+            <!-- Data will be injected here -->
+          </tbody>
+        </table>
+      </div>
     </main>
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="js/app.js"></script>
     <script>
-        const table = document.getElementById('serviceTable');
-        const search = document.getElementById('serviceSearch');
-        let allServices = [];
+      const table = document.getElementById('serviceTable');
+      const search = document.getElementById('serviceSearch');
+      let allServices = [];
 
-        socket.on('connect', () => {
-            socket.emit('services:get');
-        });
+      socket.on('connect', () => {
+        socket.emit('services:get');
+      });
 
-        socket.on('services:data', (data) => {
-            allServices = data;
-            renderServices();
-        });
+      socket.on('services:data', data => {
+        allServices = data;
+        renderServices();
+      });
 
-        socket.on('services:refresh', () => {
-            socket.emit('services:get');
-        });
+      socket.on('services:refresh', () => {
+        socket.emit('services:get');
+      });
 
-        search.addEventListener('input', renderServices);
+      search.addEventListener('input', renderServices);
 
-        function renderServices() {
-            const filter = search.value.toLowerCase();
-            table.innerHTML = allServices
-                .filter(s => s.name.toLowerCase().includes(filter) || s.description.toLowerCase().includes(filter))
-                .map(s => `
+      function renderServices() {
+        const filter = search.value.toLowerCase();
+        table.innerHTML = allServices
+          .filter(
+            s =>
+              s.name.toLowerCase().includes(filter) || s.description.toLowerCase().includes(filter)
+          )
+          .map(
+            s => `
                 <tr>
                     <td style="font-weight: bold;">${s.name}</td>
                     <td>
@@ -112,12 +197,14 @@
                         </div>
                     </td>
                 </tr>
-            `).join('');
-        }
+            `
+          )
+          .join('');
+      }
 
-        function controlSvc(name, action) {
-            socket.emit('services:control', { service: name, action });
-        }
+      function controlSvc(name, action) {
+        socket.emit('services:control', { service: name, action });
+      }
     </script>
-</body>
+  </body>
 </html>
