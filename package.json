@@ -17,6 +17,7 @@
     "format": "prettier . --write",
     "format:check": "prettier . --check",
     "smoke": "node scripts/smoke-server.js",
+    "doctor": "node scripts/pihole-doctor.js",
     "verify": "node scripts/verify.js"
   },
   "keywords": [],

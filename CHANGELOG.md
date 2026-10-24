@@ -8,10 +8,14 @@
 - **terminal:** add user/root shell switch, session restart, clearer connect/exit status and Pi-hole quick-command buttons
 - **tooling:** `npm run verify` gate - syntax check, ESLint, Prettier check, offline tests and a live HTTP smoke test
 - **tooling:** new `npm test` (node:test structural suite), `npm run smoke`, `npm run check` scripts
-- **docs:** Pi-hole v6 setup notes, `ecosystem.config.js` for pm2, expanded `.env.example`
+- **tooling:** `npm run doctor` diagnoses "Pi-hole unreachable" - config, DNS answers, per-address TCP probes on 80/8080, unauthenticated API check and a real login
+- **docs:** Pi-hole v6 setup notes, `ecosystem.config.js` for pm2, expanded `.env.example`, troubleshooting table for unreachable Pi-hole
 
 ### Bug Fixes
 
+- **pihole:** never report a bare "unknown error" - failures are normalised to a message plus errno, and `/api/pihole/status` now returns `code`/`status`/`hint` (e.g. `ECONNREFUSED` explains the `:8080` fallback, `401` points at `pihole setpassword`)
+- **pihole:** resolve the configured host once and try **every** address, IPv4 first - Node resolves `localhost` to `::1` first while `pihole-FTL` binds IPv4, which made a healthy Pi-hole look unreachable
+- **pihole:** a non-JSON answer (wrong URL) now reports the HTTP status instead of "authentication failed"
 - **lint:** stop ESLint from linting third-party bundles (`public/vendor`) and archived code
 - **lint:** resolve `no-empty`, `no-unused-vars` and `no-useless-assignment` findings in `server/index.js` and `public/js/pihole.js`
 - **lint:** ESLint now only enforces correctness; Prettier owns all formatting, removing the config conflict over quotes, trailing commas and `async (…) =>` spacing

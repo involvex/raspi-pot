@@ -26,6 +26,7 @@ served directly by Express.
 npm run verify        # Full gate: syntax + ESLint + Prettier + tests + HTTP smoke test
 npm test              # Offline structural tests (node --test test/verify.test.js)
 npm run smoke         # Boot the server on a throw-away port and probe the API
+npm run doctor        # Diagnose Pi-hole connectivity (DNS, TCP, HTTP, auth)
 npm run check         # Parse every JS/JSON file
 npm run lint          # ESLint (correctness rules only)
 npm run lint:fix      # ESLint with --fix

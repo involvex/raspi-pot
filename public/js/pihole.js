@@ -119,9 +119,16 @@
           esc(status.url || '') +
           '</span>';
       } else {
+        const code = status.code ? ` [${status.code}]` : '';
+        const hint = status.hint
+          ? '<div class="muted" style="margin-top: 0.35rem;">' + esc(status.hint) + '</div>'
+          : '';
         $('piholeVersion').innerHTML =
-          '<span class="material-icons text-danger" style="font-size: 1rem;">error</span> Pi-hole unreachable: ' +
-          esc(status.error || 'unknown error');
+          '<span class="material-icons text-danger" style="font-size: 1rem;">error</span> Pi-hole unreachable' +
+          esc(code) +
+          ': ' +
+          esc(status.error || 'no details returned') +
+          hint;
       }
       window.piholeAdminProxyPort = status.adminProxy && status.adminProxy.port;
     } catch (e) {

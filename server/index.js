@@ -11,7 +11,7 @@ const si = require('systeminformation');
 const fs_extra = require('fs-extra');
 const multer = require('multer');
 require('dotenv').config();
-const { pihole } = require('./pihole');
+const { pihole, describeError } = require('./pihole');
 const { startPiholeProxy } = require('./pihole-proxy');
 
 const app = express();
@@ -96,7 +96,8 @@ const VALID_KINDS = ['exact', 'regex'];
 
 const sendPiholeError = (res, err) => {
   const status = err && err.status >= 400 && err.status < 600 ? err.status : 502;
-  res.status(status).json({ error: err ? err.message : 'Pi-hole request failed' });
+  const info = describeError(err);
+  res.status(status).json({ error: info.message, code: info.code, hint: info.hint });
 };
 
 const piholeRoute = handler => async (req, res) => {
@@ -119,7 +120,16 @@ app.get(
       const version = await pihole.getVersion();
       res.json({ reachable: true, url: pihole.baseUrl, version, adminProxy });
     } catch (err) {
-      res.json({ reachable: false, url: pihole.baseUrl, error: err.message, adminProxy });
+      const info = describeError(err);
+      res.json({
+        reachable: false,
+        url: pihole.baseUrl,
+        error: info.message,
+        code: info.code,
+        status: info.status,
+        hint: info.hint,
+        adminProxy,
+      });
     }
   })
 );

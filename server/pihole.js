@@ -14,9 +14,90 @@
 
 const http = require('http');
 const https = require('https');
+const dns = require('dns');
+const net = require('net');
 const { URL } = require('url');
 
 const DEFAULT_TIMEOUT = 10000;
+const DNS_TTL = 30000;
+
+// Connection-level failures worth retrying against another resolved address.
+const RETRYABLE = new Set([
+  'ECONNREFUSED',
+  'ECONNRESET',
+  'EHOSTUNREACH',
+  'ENETUNREACH',
+  'ETIMEDOUT',
+  'EAI_AGAIN',
+]);
+
+const HINTS = {
+  ECONNREFUSED:
+    'Nothing is listening on that address/port. Pi-hole v6 moves its web server to :8080 when lighttpd still owns :80, and FTL usually binds IPv4 only - prefer http://127.0.0.1 over http://localhost.',
+  ENOTFOUND:
+    'The hostname does not resolve. Check PIHOLE_URL and the DNS settings of this machine.',
+  EAI_AGAIN: 'DNS resolution timed out. Check the resolver on this machine.',
+  EHOSTUNREACH: 'The host is not reachable from this machine (routing or firewall).',
+  ENETUNREACH: 'No route to the Pi-hole network from this machine.',
+  ETIMEDOUT: 'The connection timed out - a firewall is probably dropping the traffic.',
+  ECONNRESET: 'The connection was reset by the peer before Pi-hole answered.',
+  DEPTH_ZERO_SELF_SIGNED_CERT:
+    'Pi-hole uses a self-signed certificate - set PIHOLE_VERIFY_TLS=false to accept it.',
+  SELF_SIGNED_CERT_IN_CHAIN:
+    'Pi-hole uses a self-signed certificate - set PIHOLE_VERIFY_TLS=false to accept it.',
+  UNABLE_TO_VERIFY_LEAF_SIGNATURE:
+    'The TLS chain cannot be verified - set PIHOLE_VERIFY_TLS=false for a self-signed Pi-hole.',
+  CERT_HAS_EXPIRED: 'The Pi-hole TLS certificate has expired.',
+};
+
+/**
+ * Turn anything thrown into a non-empty message plus an error code.
+ *
+ * `http.request` can surface `Error("unknown error")` when libuv has an errno
+ * it cannot name, and a rejection may carry no Error at all. Both used to reach
+ * the UI as the useless text "unknown error", so normalise aggressively here.
+ */
+function normalizeError(err) {
+  const cause = err && err.cause ? err.cause : null;
+  const code = (err && err.code) || (cause && cause.code) || null;
+
+  let message = err && typeof err.message === 'string' ? err.message.trim() : '';
+
+  if (!message) {
+    if (typeof err === 'string') message = err.trim();
+    else if (code) message = `Network error (${code})`;
+    else if (err && err.name) message = `${err.name} (no message)`;
+    else message = 'Unknown error';
+  }
+
+  if (message === 'unknown error' || message === 'Unknown error') {
+    if (code) message = `Network error (${code})`;
+    else if (err && err.status) message = `Pi-hole API error (HTTP ${err.status})`;
+  }
+
+  return { message, code };
+}
+
+/** Message + code + a human hint for the dashboard and the doctor script. */
+function describeError(err) {
+  const { message, code } = normalizeError(err);
+  let hint = code && HINTS[code] ? HINTS[code] : null;
+
+  if (!hint && err && err.status === 401) {
+    hint =
+      'Pi-hole rejected the password. Run "pihole setpassword" (or create an app password under Settings > API) and put it in PIHOLE_APP_PASSWORD.';
+  } else if (!hint && err && err.status === 403) {
+    hint = 'Pi-hole refused the session (CSRF). Restart RaspiPot to open a fresh session.';
+  } else if (!hint && err && err.status === 429) {
+    hint =
+      'Pi-hole is rate-limiting logins or the session limit is reached. Wait a minute and retry.';
+  } else if (!hint && err && err.status === 404) {
+    hint =
+      'The URL answered, but not with the Pi-hole API. Check that PIHOLE_URL points at the Pi-hole web root (usually http://127.0.0.1 or http://127.0.0.1:8080).';
+  }
+
+  return { message, code, status: err && err.status ? err.status : null, hint };
+}
 
 class PiholeError extends Error {
   constructor(message, status, detail) {
@@ -29,7 +110,7 @@ class PiholeError extends Error {
 
 class PiholeClient {
   constructor(options = {}) {
-    const baseUrl = options.baseUrl || process.env.PIHOLE_URL || 'http://localhost';
+    const baseUrl = options.baseUrl || process.env.PIHOLE_URL || 'http://127.0.0.1';
     this.baseUrl = baseUrl.replace(/\/+$/, '');
     this._password = options.password;
     this.verifyTls =
@@ -43,6 +124,7 @@ class PiholeClient {
     this.sid = null;
     this.csrf = null;
     this._loginPromise = null;
+    this._dnsCache = new Map();
   }
 
   /** Password is read lazily so runtime env changes / dotenv order don't matter. */
@@ -52,70 +134,124 @@ class PiholeClient {
       : process.env.PIHOLE_APP_PASSWORD || process.env.PIHOLE_PASSWORD || '';
   }
 
-  /** Raw single request. Resolves `{ status, data }`, never throws on HTTP errors. */
-  _raw(method, apiPath, body) {
-    return new Promise((resolve, reject) => {
-      let url;
-      try {
-        url = new URL(this.baseUrl + apiPath);
-      } catch (e) {
-        return reject(new PiholeError(`Invalid Pi-hole URL: ${this.baseUrl}${apiPath}`, 500));
-      }
+  /**
+   * Raw single request. Resolves `{ status, data, contentType }`; only
+   * transport failures reject (HTTP error codes are returned as data).
+   *
+   * Hostnames are resolved up front and every address is tried in turn. This
+   * matters on modern Node: `localhost` often resolves to `::1` first while
+   * Pi-hole's FTL webserver only binds IPv4, which made a perfectly healthy
+   * Pi-hole look unreachable over the loopback interface.
+   */
+  async _raw(method, apiPath, body) {
+    let url;
+    try {
+      url = new URL(this.baseUrl + apiPath);
+    } catch (e) {
+      throw new PiholeError(`Invalid Pi-hole URL: ${this.baseUrl}${apiPath}`, 500);
+    }
 
+    const isHttps = url.protocol === 'https:';
+    const port = Number(url.port) || (isHttps ? 443 : 80);
+    const payload = body === undefined || body === null ? null : JSON.stringify(body);
+
+    const headers = { Accept: 'application/json', Host: url.host };
+    if (this.sid) headers['X-FTL-SID'] = this.sid;
+    if (this.csrf && method !== 'GET' && method !== 'HEAD') headers['X-FTL-CSRF'] = this.csrf;
+    if (payload !== null) {
+      headers['Content-Type'] = 'application/json';
+      headers['Content-Length'] = Buffer.byteLength(payload);
+    }
+
+    const targets = await this._targets(url.hostname);
+    const attempts = [];
+
+    for (const target of targets) {
+      try {
+        return await this._send({ method, url, target, port, headers, payload });
+      } catch (err) {
+        const info = normalizeError(err);
+        const retryable =
+          err instanceof PiholeError ? err.code === 'ETIMEDOUT' : RETRYABLE.has(info.code);
+        if (!retryable) throw err;
+        attempts.push({ address: target.address, family: target.family, ...info });
+      }
+    }
+
+    const tried = targets.map(target => `${formatAddress(target.address)}:${port}`).join(', ');
+    const last = attempts[attempts.length - 1] || { message: 'no address answered', code: null };
+    const error = new PiholeError(
+      `Cannot reach Pi-hole at ${this.baseUrl} (tried ${tried}): ${last.message}`,
+      502,
+      { attempts }
+    );
+    error.code = last.code;
+    error.attempts = attempts;
+    throw error;
+  }
+
+  /** Resolve the configured host to candidate addresses, IPv4 first. */
+  async _targets(hostname) {
+    const host = stripBrackets(hostname);
+    const literal = net.isIP(host);
+    if (literal) return [{ address: host, family: literal }];
+
+    const cached = this._dnsCache.get(host);
+    if (cached && cached.expires > Date.now()) return cached.list;
+
+    let list;
+    try {
+      list = await dns.promises.lookup(host, { all: true });
+    } catch (err) {
+      const info = normalizeError(err);
+      const error = new PiholeError(`Cannot resolve ${host}: ${info.message}`, 502, info);
+      error.code = info.code || 'ENOTFOUND';
+      throw error;
+    }
+
+    // FTL's webserver normally binds IPv4 only, so try A records before AAAA.
+    const ordered = [
+      ...list.filter(entry => entry.family === 4),
+      ...list.filter(entry => entry.family === 6),
+    ];
+    const result = ordered.length ? ordered : [{ address: host, family: 0 }];
+
+    this._dnsCache.set(host, { expires: Date.now() + DNS_TTL, list: result });
+    return result;
+  }
+
+  /** One request against one concrete address. */
+  _send({ method, url, target, port, headers, payload }) {
+    return new Promise((resolve, reject) => {
       const isHttps = url.protocol === 'https:';
       const transport = isHttps ? https : http;
-      const payload = body === undefined || body === null ? null : JSON.stringify(body);
-
-      const headers = { Accept: 'application/json' };
-      if (this.sid) headers['X-FTL-SID'] = this.sid;
-      if (this.csrf && method !== 'GET' && method !== 'HEAD') headers['X-FTL-CSRF'] = this.csrf;
-      if (payload !== null) {
-        headers['Content-Type'] = 'application/json';
-        headers['Content-Length'] = Buffer.byteLength(payload);
-      }
+      const literal = net.isIP(target.address) !== 0;
 
       const req = transport.request(
         {
           protocol: url.protocol,
-          hostname: url.hostname,
-          port: url.port || (isHttps ? 443 : 80),
+          host: target.address,
+          port,
           path: url.pathname + url.search,
           method,
           headers,
           rejectUnauthorized: isHttps ? this.verifyTls : undefined,
+          servername: isHttps && !literal ? stripBrackets(url.hostname) : undefined,
           timeout: this.timeout,
         },
         res => {
           const chunks = [];
-          res.on('data', c => chunks.push(c));
-          res.on('end', () => {
-            const buffer = Buffer.concat(chunks);
-            const contentType = res.headers['content-type'] || '';
-            let data = buffer;
-            if (contentType.includes('application/json') || (!contentType && buffer.length)) {
-              const text = buffer.toString('utf8');
-              if (text) {
-                try {
-                  data = JSON.parse(text);
-                } catch (e) {
-                  data = text;
-                }
-              } else {
-                data = null;
-              }
-            } else if (!buffer.length) {
-              data = null;
-            }
-            resolve({ status: res.statusCode, data, contentType });
-          });
+          res.on('data', chunk => chunks.push(chunk));
+          res.on('end', () => resolve(parseResponse(res, Buffer.concat(chunks))));
         }
       );
 
-      req.on('timeout', () => req.destroy(new PiholeError('Pi-hole request timed out', 504)));
-      req.on('error', err => {
-        if (err instanceof PiholeError) return reject(err);
-        reject(new PiholeError(`Cannot reach Pi-hole at ${this.baseUrl}: ${err.message}`, 502));
+      req.on('timeout', () => {
+        const error = new PiholeError(`Pi-hole request timed out after ${this.timeout} ms`, 504);
+        error.code = 'ETIMEDOUT';
+        req.destroy(error);
       });
+      req.on('error', reject);
 
       if (payload !== null) req.write(payload);
       req.end();
@@ -131,11 +267,12 @@ class PiholeClient {
       const session = res.data && res.data.session;
       if (res.status !== 200 || !session || !session.sid) {
         const detail = res.data && res.data.error ? res.data.error.message : null;
-        throw new PiholeError(
-          detail || 'Pi-hole authentication failed',
-          res.status === 200 ? 401 : res.status,
-          res.data
-        );
+        const reason =
+          detail ||
+          (res.status === 200
+            ? 'Pi-hole returned no session (is PIHOLE_URL the web root?)'
+            : `Pi-hole login failed (HTTP ${res.status})`);
+        throw new PiholeError(reason, res.status === 200 ? 401 : res.status, res.data);
       }
       this.sid = session.sid;
       this.csrf = session.csrf;
@@ -369,6 +506,36 @@ class PiholeClient {
   }
 }
 
+function stripBrackets(hostname) {
+  return hostname.replace(/^\[/, '').replace(/\]$/, '');
+}
+
+function formatAddress(address) {
+  return net.isIP(address) === 6 ? `[${address}]` : address;
+}
+
+function parseResponse(res, buffer) {
+  const contentType = res.headers['content-type'] || '';
+  let data = buffer;
+
+  if (contentType.includes('application/json') || (!contentType && buffer.length)) {
+    const text = buffer.toString('utf8');
+    if (text) {
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        data = text;
+      }
+    } else {
+      data = null;
+    }
+  } else if (!buffer.length) {
+    data = null;
+  }
+
+  return { status: res.statusCode, data, contentType };
+}
+
 function toQuery(params) {
   const parts = [];
   Object.keys(params).forEach(key => {
@@ -381,4 +548,4 @@ function toQuery(params) {
 
 const pihole = new PiholeClient();
 
-module.exports = { PiholeClient, PiholeError, pihole };
+module.exports = { PiholeClient, PiholeError, pihole, describeError, normalizeError };

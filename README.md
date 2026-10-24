@@ -79,7 +79,7 @@ RaspiPot is a modern, web-based management interface designed for Raspberry Pi e
    PORT=3000
 
    # Pi-hole v6 (optional)
-   PIHOLE_URL=http://localhost
+   PIHOLE_URL=http://127.0.0.1
    PIHOLE_APP_PASSWORD=your_pihole_password
    PIHOLE_ADMIN_PROXY_PORT=8081
    ```
@@ -104,6 +104,7 @@ npm run smoke         # boots the server on a throw-away port and probes the API
 npm run check         # parses every JS/JSON file
 npm run lint          # ESLint, correctness rules only
 npm run format        # reformat with Prettier (add format:check in CI)
+npm run doctor        # diagnose a "Pi-hole unreachable" error end to end
 ```
 
 `npm run verify` is the command to trust before committing — it never touches
@@ -121,7 +122,7 @@ keeps your Pi-hole password out of the browser.
    (or use an app password from **Settings → API** if 2FA is enabled).
 2. Point RaspiPot at it in `.env`:
    ```env
-   PIHOLE_URL=http://localhost
+   PIHOLE_URL=http://127.0.0.1
    PIHOLE_APP_PASSWORD=your_pihole_password
    ```
 3. Open the **Pi-hole** page in the sidebar.
@@ -131,7 +132,31 @@ reverse proxy on `PIHOLE_ADMIN_PROXY_PORT` (default `8081`), so the iframe is
 same-origin and Pi-hole's own `/admin` + `/api` paths work untouched.
 
 > If you kept `lighttpd` on port 80, Pi-hole v6 falls back to port `8080` —
-> set `PIHOLE_URL=http://localhost:8080` accordingly.
+> set `PIHOLE_URL=http://127.0.0.1:8080` accordingly.
+
+### "Pi-hole unreachable" — diagnose it
+
+The dashboard shows the exact cause plus a hint. For the full picture run on the
+RaspiPot host:
+
+```bash
+npm run doctor
+```
+
+It prints the configured URL (password masked), the DNS answers, a TCP probe
+against every address and port `80`/`8080`, an unauthenticated
+`GET /api/info/version`, and a real login attempt. Common results:
+
+| Symptom                                     | Cause                                        | Fix                                                                        |
+| ------------------------------------------- | -------------------------------------------- | -------------------------------------------------------------------------- |
+| `ECONNREFUSED ::1:80`, `127.0.0.1:80` works | `localhost` resolved to IPv6, FTL binds IPv4 | use `PIHOLE_URL=http://127.0.0.1` (the client now tries IPv4 first anyway) |
+| every port refused, `:8080` open            | lighttpd still owns port 80                  | `PIHOLE_URL=http://127.0.0.1:8080`                                         |
+| HTTP 404 / HTML on `/api/info/version`      | wrong URL (old admin UI or a proxy)          | point at the web root                                                      |
+| `Unauthorized` (401)                        | wrong or empty `PIHOLE_APP_PASSWORD`         | run `sudo pihole setpassword` and copy it into `.env`, then restart        |
+| `429`                                       | too many logins/sessions                     | wait a minute, `pm2 restart raspipot`                                      |
+
+Authentication is bound to the **client IP**: RaspiPot must reach Pi-hole from
+the same address family it authenticates from (both `127.0.0.1` or both LAN).
 
 ---
 
